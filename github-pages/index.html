@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IICS Shift Scheduler — Privacy Policy</title>
+<style>
+  body { font-family: Sarabun, "Segoe UI", system-ui, sans-serif; background: #f4f6fa; color: #222; margin: 0; padding: 32px 16px; line-height: 1.6; }
+  main { max-width: 760px; margin: 0 auto; background: #fff; border-radius: 14px; padding: 32px 36px; box-shadow: 0 6px 24px rgba(0,0,0,.08); }
+  h1 { font-size: 26px; margin: 0 0 4px; color: #1f4e79; }
+  h2 { font-size: 18px; margin: 28px 0 8px; color: #1f4e79; border-bottom: 1px solid #e3e8ef; padding-bottom: 4px; }
+  .sub { color: #666; margin: 0 0 20px; }
+  ul { padding-left: 22px; }
+  li { margin: 4px 0; }
+  code { background: #eef2f7; padding: 1px 5px; border-radius: 4px; font-size: 90%; }
+  .en { color: #555; font-size: 95%; }
+  footer { margin-top: 32px; color: #888; font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>IICS Shift Scheduler</h1>
+  <p class="sub">โปรแกรมจัดตารางเวรสำหรับใช้ภายในหน่วยงาน · Internal shift-scheduling tool</p>
+
+  <h2>เกี่ยวกับแอป / About</h2>
+  <p>IICS Shift Scheduler เป็นโปรแกรมจัดตารางเวรที่ทำงานบนคอมพิวเตอร์ภายในหน่วยงานเท่านั้น
+  ใช้เพื่อวางแผนตารางเวรของบุคลากร และมีตัวเลือก (ไม่บังคับ) ให้บุคลากรแต่ละคนเชื่อมต่อ Google Calendar
+  ของตนเอง เพื่อให้ตารางเวรปรากฏในปฏิทินโดยอัตโนมัติ</p>
+  <p class="en">IICS Shift Scheduler is a staff shift-scheduling application that runs on a computer inside the
+  organisation. It offers an optional, per-person feature to push that person's own shifts into their Google Calendar.</p>
+
+  <h2>นโยบายความเป็นส่วนตัว / Privacy Policy</h2>
+
+  <p><b>ข้อมูลที่แอปเข้าถึง / What the app accesses</b></p>
+  <ul>
+    <li>อีเมลของบัญชี Google ที่ผู้ใช้เลือกเชื่อมต่อ (เพื่อแสดงว่าเชื่อมต่อบัญชีใด)<br>
+      <span class="en">The email address of the Google account you connect (shown so you know which account is linked).</span></li>
+    <li>สิทธิ์ <code>calendar.app.created</code> — สร้างปฏิทินรองชื่อ <b>"ตารางเวร IICS"</b> ในบัญชีของผู้ใช้
+      และเพิ่ม/แก้ไข/ลบกิจกรรม<u>เฉพาะในปฏิทินนั้น</u> แอปไม่สามารถอ่านหรือแก้ไขปฏิทินอื่น ๆ ของผู้ใช้ได้<br>
+      <span class="en">The <code>calendar.app.created</code> scope — the app creates a secondary calendar named
+      "ตารางเวร IICS" in your account and adds, updates and deletes events <u>only in that calendar</u>.
+      It cannot read or modify any of your other calendars.</span></li>
+  </ul>
+
+  <p><b>การใช้ข้อมูล / How the data is used</b></p>
+  <ul>
+    <li>ใช้เพื่อเขียนตารางเวรของผู้ใช้คนนั้นลงในปฏิทินของตนเองเท่านั้น<br>
+      <span class="en">Solely to write your own shift schedule into your own calendar.</span></li>
+    <li>ไม่มีการโฆษณา ไม่มีการวิเคราะห์พฤติกรรม และไม่มีการขายหรือส่งต่อข้อมูลให้บุคคลที่สาม<br>
+      <span class="en">No advertising, no profiling, no selling or sharing of data with third parties.</span></li>
+  </ul>
+
+  <p><b>การจัดเก็บข้อมูล / Storage</b></p>
+  <ul>
+    <li>โทเค็นการเข้าถึง (refresh token) และอีเมลถูกเก็บในฐานข้อมูลบนคอมพิวเตอร์ของหน่วยงานที่รันโปรแกรมเท่านั้น
+      ไม่ถูกส่งไปยังเซิร์ฟเวอร์ภายนอกใด ๆ นอกจาก Google<br>
+      <span class="en">The OAuth refresh token and email are stored only in a local database on the organisation's
+      computer that runs the program. They are never sent anywhere other than Google's own APIs.</span></li>
+  </ul>
+
+  <p><b>การยกเลิกการเชื่อมต่อ / Revoking access</b></p>
+  <ul>
+    <li>กดปุ่ม "ยกเลิกการเชื่อมต่อ" ในโปรแกรม — แอปจะเพิกถอนโทเค็นกับ Google และลบข้อมูลที่เก็บไว้ทันที
+      (เลือกได้ว่าจะลบปฏิทิน "ตารางเวร IICS" ด้วยหรือไม่)<br>
+      <span class="en">Click "Disconnect" in the app — the token is revoked with Google and the stored data is deleted
+      immediately (optionally deleting the "ตารางเวร IICS" calendar as well).</span></li>
+    <li>หรือเพิกถอนได้เองที่ <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">myaccount.google.com/permissions</a><br>
+      <span class="en">Or revoke it yourself at myaccount.google.com/permissions.</span></li>
+  </ul>
+
+  <p><b>การใช้ข้อมูลจาก Google API / Google API Services User Data Policy</b></p>
+  <p class="en">The app's use of information received from Google APIs adheres to the
+    <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Google API Services User Data Policy</a>,
+    including the Limited Use requirements.</p>
+
+  <h2>ติดต่อ / Contact</h2>
+  <p>สอบถามหรือขอให้ลบข้อมูล: <a href="mailto:alittlekitten01@gmail.com">alittlekitten01@gmail.com</a><br>
+    <span class="en">Questions or data-deletion requests: alittlekitten01@gmail.com</span></p>
+
+  <footer>ปรับปรุงล่าสุด / Last updated: 18 September 2026</footer>
+</main>
+</body>
+</html>

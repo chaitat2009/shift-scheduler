@@ -1,0 +1,2996 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ตารางเวร</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<style>
+  :root {
+    --bg: #f7f9fb;
+    --panel: #ffffff;
+    --border: #dde3ea;
+    --border-soft: #e2e8ed;
+    --header: #1a6b6e;
+    --header-dark: #145558;
+    --header-text: #ffffff;
+    --weekend: #fff7e0;
+    --off: #fce4ec;
+    --off-text: #c62828;
+    --r-bg: #fff3a0;
+    --r-text: #8a6d00;
+    --v-bg: #dbeafe;
+    --v-text: #1e40af;
+    --e-bg: #d8f3dc;
+    --e-text: #1b5e20;
+    --shift: #e8f4f4;
+    --shift-border: #b2d8d8;
+    --shift-text: #1a6b6e;
+    --muted: #6b7280;
+    --accent: #1a6b6e;
+    --accent-soft: #f0f8f8;
+    --danger: #e53935;
+    --warn: #f0a500;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Sarabun', -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    margin: 0;
+    color: #222;
+    font-size: 13px;
+  }
+  header.app {
+    background: var(--header);
+    color: var(--header-text);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  header.app h1 { margin: 0; font-size: 16px; font-weight: 600; }
+  header.app .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  header.app label { font-size: 12px; opacity: 0.9; }
+  header.app select, header.app input {
+    padding: 5px 10px;
+    border: 1px solid rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.15);
+    color: white;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: 'Sarabun', sans-serif;
+    outline: none;
+  }
+  header.app select option { color: #222; }
+  header.app button {
+    padding: 6px 12px;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: 'Sarabun', sans-serif;
+    font-weight: 500;
+  }
+  header.app button:hover { background: rgba(255,255,255,0.28); }
+  /* Settings dropdown */
+  .settings-dropdown { position: relative; display: inline-block; }
+  .settings-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+    min-width: 180px;
+    padding: 4px;
+    z-index: 50;
+  }
+  /* Invisible bridge above the menu so the cursor can travel from the
+     trigger button down to the menu without crossing a dead gap that would
+     trip mouseleave. */
+  .settings-menu.open::before {
+    content: "";
+    position: absolute;
+    top: -10px;
+    left: 0;
+    right: 0;
+    height: 10px;
+    background: transparent;
+  }
+  .settings-menu.open { display: flex; flex-direction: column; gap: 2px; }
+  .settings-menu button {
+    background: white !important;
+    color: #222 !important;
+    border: 1px solid transparent !important;
+    text-align: left !important;
+    padding: 7px 12px !important;
+    border-radius: 6px !important;
+    font-size: 12px !important;
+    font-family: 'Sarabun', sans-serif !important;
+    font-weight: 500 !important;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .settings-menu button:hover {
+    background: var(--accent-soft) !important;
+    color: var(--accent) !important;
+  }
+  .settings-menu button:disabled {
+    color: #aaa !important;
+    cursor: not-allowed;
+  }
+  header.app .header-status {
+    margin-left: 8px;
+    padding: 4px 10px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.85);
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+  .lock-badge {
+    padding: 3px 8px;
+    background: #b94a48;
+    color: white;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 6px;
+  }
+  .table-wrap.month-locked table.grid td.cell { cursor: default; }
+  .table-wrap.month-locked table.grid td.cell:hover { outline: none; }
+  /* PNG export mode: hide totals columns (last 3 cells per row: H/OT/OFF) and footer.
+     Also flatten sticky positioning so html2canvas captures the table cleanly. */
+  .table-wrap.exporting {
+    overflow: visible !important;
+    max-height: none !important;
+    width: max-content !important;   /* shrink-wrap around the widest child (the table) so the title spans the full table width */
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+  .table-wrap.exporting tr > *:nth-last-child(-n+3) { display: none !important; }
+  /* Also collapse the reserved column widths from the colgroup so we don't
+     leave a blank gap where H/OT/OFF used to be. */
+  .table-wrap.exporting table.grid col.col-total { visibility: collapse; }
+  .table-wrap.exporting tfoot { display: none !important; }
+  .table-wrap.exporting table.grid thead th,
+  .table-wrap.exporting table.grid th.emp-col,
+  .table-wrap.exporting table.grid td.emp-col { position: static !important; }
+  .table-wrap.exporting table.grid td.cell:hover { outline: none; }
+  .table-wrap.exporting table.grid td.cell.selected,
+  .table-wrap.exporting table.grid td.cell.sel-top,
+  .table-wrap.exporting table.grid td.cell.sel-bottom,
+  .table-wrap.exporting table.grid td.cell.sel-left,
+  .table-wrap.exporting table.grid td.cell.sel-right,
+  .table-wrap.exporting table.grid td.cell.copied { background-image: none; box-shadow: none; outline: none; }
+  /* Hide UI affordances (drag handle, edit/delete buttons) in the export */
+  .table-wrap.exporting .drag-handle,
+  .table-wrap.exporting .emp-actions { display: none !important; }
+  .table-wrap.exporting .export-title {
+    font-family: 'Sarabun', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: white;
+    text-align: center;
+    padding: 16px 8px 16px;
+    background: #1a6b6e;
+  }
+  /* Off-screen container used to render the two-half PNG export */
+  .png-export-root {
+    position: fixed; left: -10000px; top: 0;
+    background: white;
+    font-family: 'Sarabun', sans-serif;
+    padding: 0;
+  }
+  .png-export-root .export-title {
+    background: #1a6b6e; color: white;
+    font-size: 22px; font-weight: 700; text-align: center;
+    padding: 16px;
+  }
+  .png-export-root .export-subtitle {
+    background: var(--accent-soft); color: var(--accent);
+    font-size: 16px; font-weight: 700;
+    padding: 10px 14px;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .png-export-root table { border-collapse: separate; border-spacing: 0; }
+  .png-export-root .drag-handle,
+  .png-export-root .emp-actions { display: none !important; }
+  .png-export-root th.emp-col,
+  .png-export-root td.emp-col,
+  .png-export-root thead th { position: static !important; }
+  .png-export-root td.cell.selected,
+  .png-export-root td.cell.sel-top,
+  .png-export-root td.cell.sel-bottom,
+  .png-export-root td.cell.sel-left,
+  .png-export-root td.cell.sel-right,
+  .png-export-root td.cell.copied { background-image: none !important; box-shadow: none !important; outline: none !important; }
+  .png-export-root td.cell.editing { outline: none !important; }
+  .png-export-root td.cell:hover { outline: none !important; }
+  /* Empty cells: hide the "·" placeholder so they look like clean blanks. */
+  .png-export-root td.cell.empty::before { content: none !important; }
+  /* Filler cells / headers used to pad the shorter half so both halves are the
+     same width. Styled in the working-shift teal so the gap matches the table. */
+  .png-export-root td.filler-cell { background: var(--shift) !important; border-right: 1px solid var(--border) !important; border-bottom: 1px solid var(--border) !important; }
+  .png-export-root th.filler-th { background: var(--accent-soft) !important; border-right: 1px solid var(--border) !important; border-bottom: 1px solid var(--border) !important; }
+  header.app .spacer { flex: 1; }
+
+  .toolbar {
+    background: var(--panel);
+    border-bottom: 3px solid var(--accent);
+    box-shadow: 0 2px 6px rgba(26,107,110,0.08);
+    padding: 8px 16px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    position: relative;
+    z-index: 2;
+  }
+  .toolbar button {
+    padding: 5px 12px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: 'Sarabun', sans-serif;
+    color: #444;
+  }
+  .toolbar button:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .toolbar button.primary { background: var(--accent); color: white; border-color: var(--accent); }
+  .toolbar button.primary:hover { background: var(--header-dark); }
+  .toolbar .group { display: flex; gap: 4px; align-items: center; padding-right: 8px; border-right: 1px solid var(--border); }
+  .toolbar .group:last-child { border-right: none; }
+  .toolbar .hint { color: var(--muted); font-size: 11px; }
+
+  .table-wrap {
+    overflow: auto;
+    background: var(--panel);
+    margin: 10px 12px;
+    max-height: calc(100vh - 130px);
+    max-width: calc(100vw - 24px);  /* leave room for the 12px margins on each side */
+    width: fit-content;             /* shrink to the table width — no white strip on the right */
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+  }
+  table.grid {
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: fixed;
+    width: max-content;
+  }
+  table.grid col.col-emp   { width: 200px; }
+  table.grid col.col-day   { width: 50px;  }
+  table.grid col.col-total { width: 46px;  }
+  table.grid th, table.grid td {
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: 3px 4px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background: white;
+    height: 30px;
+    box-sizing: border-box;
+  }
+  table.grid thead th {
+    position: sticky;
+    top: 0;
+    background: var(--accent-soft);
+    z-index: 3;
+    font-weight: 600;
+    font-size: 12px;
+    color: var(--accent);
+  }
+  table.grid thead th.weekend { background: #fff2cc; color: #8a6d00; }
+  table.grid thead th.holiday { background: #ffd6c2; color: #8a4500; }
+  table.grid thead th.meeting { background: #e8e0f5; color: #4a2a8a; }
+  table.grid thead th .hol-mark { font-size: 9px; color: #c0392b; }
+  table.grid thead th .mtg-mark { font-size: 9px; color: #5c2a99; }
+  /* Vertical-event-name row at the top of the header */
+  table.grid thead tr.event-row th {
+    height: 90px;
+    padding: 4px 2px;
+    background: var(--accent-soft);  /* match the regular header row */
+    vertical-align: bottom;
+    border-bottom: 2px solid var(--border);
+  }
+  table.grid thead tr.event-row th.event-emp-col {
+    background: var(--accent-soft);
+    border-bottom: 2px solid var(--border);
+  }
+  table.grid thead tr.event-row th.event-cell.holiday { background: #fef0e6; }
+  table.grid thead tr.event-row th.event-cell.meeting { background: #f0e8fa; }
+  /* SVG-rendered vertical event labels — survives html2canvas reliably,
+     avoiding the writing-mode + transform combo that browsers and the export
+     renderer interpret inconsistently. */
+  table.grid thead tr.event-row th svg.event-svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+  table.grid thead tr.event-row th { padding: 0 !important; }
+  table.grid th.emp-col, table.grid td.emp-col {
+    position: sticky;
+    left: 0;
+    background: white;
+    text-align: left;
+    z-index: 2;
+    border-right: 2px solid var(--border);
+  }
+  table.grid thead th.emp-col { z-index: 4; background: var(--accent-soft); }
+  table.grid td.weekend { background: var(--weekend); }
+  table.grid td.holiday { background: #ffe4d4; }
+  table.grid td.meeting { background: #f0e8fa; }
+  table.grid td.shift { background: var(--shift); color: var(--shift-text); font-weight: 600; cursor: pointer; }
+  table.grid td.off { background: var(--off); color: var(--off-text); font-weight: 700; cursor: pointer; }
+  table.grid td.r   { background: var(--r-bg); color: var(--r-text); font-weight: 700; cursor: pointer; }
+  table.grid td.v   { background: var(--v-bg); color: var(--v-text); font-weight: 700; cursor: pointer; }
+  table.grid td.e   { background: var(--e-bg); color: var(--e-text); font-weight: 700; cursor: pointer; }
+  table.grid td.empty { color: #bbb; cursor: pointer; }
+  table.grid td.empty::before { content: "·"; }
+  table.grid td.cell:hover { outline: 2px solid var(--accent); outline-offset: -2px; }
+  /* Selection: only outer perimeter is drawn (sel-top/bottom/left/right classes).
+     Interior edges between adjacent selected cells stay clean (no doubled border). */
+  table.grid td.cell {
+    position: relative;  /* anchor for the absolutely-positioned in-cell edit input */
+    --st: 0 0 0 0 transparent;
+    --sb: 0 0 0 0 transparent;
+    --sl: 0 0 0 0 transparent;
+    --sr: 0 0 0 0 transparent;
+    box-shadow: inset var(--st), inset var(--sb), inset var(--sl), inset var(--sr);
+  }
+  table.grid td.cell.selected {
+    background-image: linear-gradient(rgba(26,107,110,0.14), rgba(26,107,110,0.14));
+  }
+  table.grid td.cell.sel-top    { --st: 0  2px 0 0 var(--accent); }
+  table.grid td.cell.sel-bottom { --sb: 0 -2px 0 0 var(--accent); }
+  table.grid td.cell.sel-left   { --sl:  2px 0 0 0 var(--accent); }
+  table.grid td.cell.sel-right  { --sr: -2px 0 0 0 var(--accent); }
+  table.grid td.cell.copied { outline: 2px dashed var(--accent); outline-offset: -2px; }
+  /* In-cell editing — input overlays the cell content via absolute positioning
+     so it sits on top of any ::before placeholder (the "·" on empty cells)
+     and is the only thing the user can see/click during editing. */
+  table.grid td.cell.editing { outline: 2px solid var(--accent); outline-offset: -2px; }
+  table.grid td.cell.editing::before { content: none; }
+  .cell-edit-input {
+    position: absolute;
+    inset: 0;
+    width: 100%; height: 100%;
+    padding: 0 4px; border: none; outline: none;
+    background: white;
+    font-family: 'Sarabun', sans-serif; font-size: 12px;
+    font-weight: 600; color: var(--shift-text); text-align: center;
+    letter-spacing: -0.2px;
+    z-index: 5;
+  }
+
+  .emp-cell { display: flex; align-items: center; gap: 6px; }
+  .drag-handle {
+    cursor: grab; padding: 0 4px; color: #aaa; font-size: 13px;
+    user-select: none; line-height: 1; letter-spacing: -2px;
+  }
+  .drag-handle:hover { color: var(--accent); }
+  .drag-handle:active { cursor: grabbing; }
+  table.grid tr.dragging td.emp-col { opacity: 0.4; }
+  table.grid tr.drop-above td { box-shadow: inset 0 3px 0 0 var(--accent); }
+  table.grid tr.drop-below td { box-shadow: inset 0 -3px 0 0 var(--accent); }
+  .emp-info { flex: 1; min-width: 0; line-height: 1.25; }
+  .emp-name { font-weight: 600; font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+  .emp-meta { color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
+  .emp-actions { display: flex; gap: 2px; }
+  .emp-actions button {
+    width: 22px; height: 22px; padding: 0; font-size: 12px;
+    background: transparent; border: 1px solid var(--border); border-radius: 4px;
+    cursor: pointer; color: var(--muted);
+  }
+  .emp-actions button:hover { background: #eef3f9; color: var(--accent); }
+  .emp-actions button.del:hover { color: var(--danger); border-color: var(--danger); }
+  .emp-actions button.gcal { font-weight: 800; font-family: Arial, sans-serif; }
+  .emp-actions button.gcal.on { color: #1b7f3b; border-color: #1b7f3b; background: #eaf7ee; }
+  .emp-actions button.gcal.err { color: var(--danger); border-color: var(--danger); background: #fdeeee; }
+
+  /* Google sync modal */
+  .modal.gcal-modal { max-width: 460px; font-size: 13px; }
+  .modal.gcal-modal p { margin: 6px 0; line-height: 1.5; color: #333; }
+  .modal.gcal-modal .status { padding: 10px 12px; border-radius: 8px; background: #f4f6fa; margin: 10px 0; }
+  .modal.gcal-modal .status.ok { background: #eaf7ee; }
+  .modal.gcal-modal .status.err { background: #fdeeee; }
+  .modal.gcal-modal ol { padding-left: 20px; margin: 6px 0; }
+  .modal.gcal-modal li { margin: 3px 0; }
+  .modal.gcal-modal .actions .danger { background: white; border: 1px solid var(--danger); color: var(--danger); }
+  .modal.gcal-modal .actions .spacer { flex: 1; }
+  .modal.gcal-modal .muted { color: var(--muted); font-size: 12px; }
+
+  tfoot td {
+    background: #eef4f4 !important;
+    font-weight: 600;
+    color: #444;
+    font-size: 11px;
+  }
+  tfoot td.emp-col { background: #eef4f4 !important; text-align: right; padding-right: 12px; }
+  tfoot tr.footer-sub td { font-weight: 500; color: #777; background: #f6f9f9 !important; }
+  tfoot tr.footer-sub td.emp-col { background: #f6f9f9 !important; padding-right: 8px; }
+  tfoot td.uncovered { background: var(--off) !important; color: var(--off-text); font-weight: 700; }
+  table.grid td.under-min { background: var(--off) !important; color: var(--off-text); font-weight: 700; }
+  table.grid td.ot-cell { background: #e8f4f4 !important; color: var(--accent); font-weight: 700; }
+  /* Strong vertical separator before the totals block (H column) */
+  table.grid th.totals-start, table.grid td.totals-start { border-left: 3px solid var(--accent); }
+  table.grid td.shift, table.grid td.off { font-size: 11px; letter-spacing: -0.2px; }
+
+  /* Popover */
+  .popover {
+    position: fixed;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+    padding: 12px;
+    z-index: 100;
+    min-width: 260px;
+    font-family: 'Sarabun', sans-serif;
+  }
+  .popover h4 { margin: 0 0 10px; font-size: 12px; color: var(--accent); font-weight: 700; }
+  .popover .preset-group-label { font-size: 11px; font-weight: 700; color: #444; margin: 4px 0 4px; letter-spacing: 0.2px; }
+  .popover .preset-group-label:first-of-type { margin-top: 0; }
+  .popover .presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-bottom: 8px; }
+  .popover .presets button {
+    padding: 7px 4px; font-size: 12px; font-family: 'Sarabun', sans-serif;
+    background: var(--shift); color: var(--shift-text); border: 1px solid var(--shift-border); border-radius: 6px;
+    cursor: pointer; font-weight: 600;
+  }
+  .popover .presets button:hover { background: var(--accent); color: white; border-color: var(--accent); }
+  .popover .presets button.off { background: var(--off); color: var(--off-text); border-color: #f5c6cb; }
+  .popover .presets button.off:hover { background: var(--off-text); color: white; }
+  .popover .presets button.r { background: var(--r-bg); color: var(--r-text); border-color: #f0d770; }
+  .popover .presets button.r:hover { background: var(--r-text); color: white; }
+  .popover .presets button.v { background: var(--v-bg); color: var(--v-text); border-color: #9ec5ff; }
+  .popover .presets button.v:hover { background: var(--v-text); color: white; }
+  .popover .presets button.e { background: var(--e-bg); color: var(--e-text); border-color: #95d6a1; }
+  .popover .presets button.e:hover { background: var(--e-text); color: white; }
+  .popover .presets button.clear { background: white; color: var(--muted); border-color: var(--border); }
+  .popover .custom { display: flex; gap: 5px; align-items: center; }
+  .popover .custom input { width: 80px; padding: 5px 7px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; font-family: 'Sarabun', sans-serif; background: #fafbfc; }
+  .popover .custom input:focus { border-color: var(--accent); background: white; outline: none; }
+  .popover .custom button { padding: 5px 12px; font-size: 12px; cursor: pointer; background: var(--accent); color: white; border: none; border-radius: 6px; font-family: 'Sarabun', sans-serif; font-weight: 600; }
+  .popover .custom button:hover { background: var(--header-dark); }
+
+  /* Modal */
+  .modal-bg {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+    display: flex; align-items: center; justify-content: center; z-index: 200;
+  }
+  .modal {
+    background: white; border-radius: 14px; padding: 22px; min-width: 340px; max-width: 90vw;
+    box-shadow: 0 10px 36px rgba(0,0,0,0.22);
+    font-family: 'Sarabun', sans-serif;
+  }
+  .modal h3 { margin: 0 0 14px; font-size: 15px; color: var(--accent); font-weight: 700; }
+  .modal .field { margin-bottom: 10px; }
+  .modal label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 4px; font-weight: 600; }
+  .modal input, .modal select {
+    width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: 7px; font-size: 13px;
+    font-family: 'Sarabun', sans-serif; background: #fafbfc; outline: none;
+  }
+  .modal input:focus, .modal select:focus { border-color: var(--accent); background: white; }
+  .modal .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+  .modal .actions button { padding: 7px 16px; border-radius: 7px; cursor: pointer; font-size: 13px; font-family: 'Sarabun', sans-serif; font-weight: 600; }
+  .modal .actions .ok { background: var(--accent); color: white; border: 1px solid var(--accent); }
+  .modal .actions .ok:hover { background: var(--header-dark); }
+  .modal .actions .cancel { background: white; border: 1px solid var(--border); color: #555; }
+  .modal .actions .cancel:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Rules modal */
+  .modal.rules-modal { min-width: 860px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+  .rules-section { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; }
+  .rules-section:first-of-type { border-top: 0; padding-top: 0; margin-top: 0; }
+  .rules-section h4 { margin: 0 0 8px; font-size: 13px; color: var(--accent); font-weight: 700; }
+  .rules-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 20px; margin-bottom: 12px; }
+  .rules-grid label { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 12px; color: #444; min-height: 28px; }
+  .rules-grid label input[type=number] { width: 84px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 5px; background: #fafbfc; font-family: 'Sarabun'; font-size: 12px; text-align: right; }
+  .rules-grid label input[type=number]:focus { border-color: var(--accent); background: white; outline: none; }
+  .rules-toggles {
+    display: flex; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 12px;
+    padding: 10px 12px; background: var(--accent-soft); border-radius: 8px;
+  }
+  .rules-toggles label {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; color: #444; cursor: pointer;
+    padding: 2px 0;
+  }
+  .rules-toggles label input { margin: 0; }
+  /* Holidays editor */
+  .holidays-row {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    margin: 6px 0 12px;
+  }
+  .holidays-row .label-col {
+    font-size: 11px; font-weight: 700; color: var(--muted);
+    margin-bottom: 4px; width: 100%;
+  }
+  .hol-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 4px 3px 8px; background: var(--shift); color: var(--shift-text);
+    border: 1px solid var(--shift-border); border-radius: 14px;
+    font-size: 12px; font-weight: 600;
+  }
+  .hol-chip.hol-chip-holiday { background: #fef0e6; color: #8a4500; border-color: #f4c298; }
+  .hol-chip.hol-chip-meeting { background: #f0e8fa; color: #4a2a8a; border-color: #c7b8f5; }
+  .ev-chip-name { font-weight: 500; opacity: 0.9; }
+  .hol-chip button {
+    background: none; border: none; cursor: pointer;
+    color: var(--shift-text); padding: 0 4px; font-size: 14px;
+    line-height: 1; opacity: 0.6;
+  }
+  .hol-chip button:hover { opacity: 1; color: var(--danger); }
+  .hol-add { display: inline-flex; gap: 4px; align-items: center; }
+  .hol-add input[type=date] {
+    padding: 4px 6px; border: 1px solid var(--border);
+    border-radius: 5px; font-size: 12px; font-family: 'Sarabun';
+  }
+  .hol-add button {
+    padding: 4px 10px; background: var(--accent); color: white;
+    border: none; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 600;
+  }
+  .hol-empty { color: var(--muted); font-size: 11px; font-style: italic; }
+  .modal label.full { display: block; font-size: 12px; color: #444; margin: 6px 0; }
+  .modal label.full input { display: block; margin-top: 4px; }
+  .rule-input { width: 100%; padding: 5px 8px; border: 1px solid var(--border); border-radius: 5px; background: #fafbfc; font-family: 'Sarabun'; font-size: 12px; }
+  .rule-input:focus { border-color: var(--accent); background: white; outline: none; }
+  .rule-input.narrow { width: 70px; }
+  .rules-table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+  .rules-table th, .rules-table td { border: 1px solid var(--border-soft); padding: 5px 6px; text-align: center; vertical-align: middle; }
+  .rules-table th { background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 11px; }
+  .rules-table td:nth-child(1), .rules-table td:nth-child(2) { text-align: left; }
+  .rules-table col.col-person  { width: 130px; }
+  .rules-table col.col-shifts  { width: auto; }
+  .rules-table col.col-break   { width: 55px; }
+  .rules-table col.col-flag    { width: 56px; }
+  .rules-table td input.rule-input.wide { width: 100%; min-width: 0; }
+  .rules-table.compact th, .rules-table.compact td { padding: 3px 6px; }
+  .rule-meta { font-size: 10px; color: var(--muted); font-weight: 400; }
+  .rule-warn { background: #fff7e0; color: #8a6d00; border: 1px solid #f0d770; border-radius: 6px; padding: 6px 10px; font-size: 11px; margin-bottom: 8px; }
+
+  .status-bar {
+    background: var(--header-dark);
+    color: rgba(255,255,255,0.9);
+    padding: 6px 16px;
+    font-size: 11px;
+    border-top: 3px solid var(--accent);
+    box-shadow: 0 -2px 6px rgba(26,107,110,0.08);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .status-bar #saveStatus {
+    margin-left: auto;
+    padding: 3px 10px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+
+</style>
+</head>
+<body>
+
+<header class="app">
+  <h1>ตารางเวร</h1>
+  <div class="controls">
+    <label>เดือน</label>
+    <select id="monthSel"></select>
+    <label>ปี</label>
+    <input type="number" id="yearInput" style="width: 70px" />
+    <label title="ชั่วโมงทำงานขั้นต่ำต่อคนสำหรับเดือนนี้">ชั่วโมงขั้นต่ำ</label>
+    <input type="number" id="minHoursInput" style="width: 60px" min="0" step="1" />
+    <span id="lockBadge" class="lock-badge" style="display:none">🔒 ปิดล็อก</span>
+  </div>
+  <div class="spacer"></div>
+  <div class="controls">
+    <div class="settings-dropdown">
+      <button id="btnExportPng" title="ดาวน์โหลดตารางเวรเป็นรูปภาพ PNG">🖼 ดาวน์โหลดรูป ▾</button>
+      <div id="exportMenu" class="settings-menu">
+        <button id="btnExportFull" title="ตารางเดียวทั้งเดือน (1–31)">📄 เต็มเดือน</button>
+        <button id="btnExportSplit" title="แบ่งครึ่งเดือนแรกและครึ่งหลัง">📑 แบ่งครึ่งเดือน</button>
+      </div>
+    </div>
+    <button id="btnAutoFill" title="จัดตารางเวรอัตโนมัติตามกฎที่ตั้งไว้">⚡ จัดอัตโนมัติ</button>
+    <div class="settings-dropdown">
+      <button id="btnSettings" title="เมนูตั้งค่า">⚙ ตั้งค่า ▾</button>
+      <div id="settingsMenu" class="settings-menu">
+        <button id="btnRules" title="ดู / แก้ไขกฎการจัดตาราง">📋 กฎ</button>
+        <button id="btnAddEmp">＋ พนักงาน</button>
+        <button id="btnClear">🗑 ล้างเดือนนี้</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="table-wrap" id="tableWrap"></div>
+
+<div class="status-bar">
+  <span id="saveStatus">🗄 เซิร์ฟเวอร์</span>
+</div>
+
+<div id="popoverHost"></div>
+<div id="modalHost"></div>
+
+<script>
+"use strict";
+
+// ---------- State ----------
+const PRESET_GROUPS = [
+  { label: "เริ่ม 8:00",  shifts: ["08:00-16:00", "08:00-17:00", "08:00-20:00"] },
+  { label: "เริ่ม 9:00",  shifts: ["09:00-17:00", "09:00-18:00", "09:00-20:00"] },
+  { label: "เริ่ม 10:00", shifts: ["10:00-18:00", "10:00-20:00"] }
+];
+
+const STORAGE_KEY = "shiftScheduler.v1";
+
+let state = loadState() || {
+  month: new Date().getMonth(),       // 0-11
+  year: new Date().getFullYear(),
+  employees: [
+    // example seed
+    { id: "660049", name: "Mr. PAWAT IAMSONTI", position: "UR Officer" }
+  ],
+  // shifts[empId][YYYY-MM-DD] = "08:00-17:00" | "OFF" | undefined
+  shifts: {},
+  minHours: 168,            // legacy fallback / default for any month without an override
+  minHoursByMonth: {},      // { "YYYY-MM": number }
+  rules: null               // populated below; cells with any explicit value are treated as locked
+};
+if (state.minHours == null) state.minHours = 168;
+if (!state.minHoursByMonth) state.minHoursByMonth = {};
+// Legacy state migration: drop any old locks map; we now infer "locked" from
+// whether the cell has any explicit value in state.shifts.
+delete state.locks;
+
+// Solver helper: a cell is "user-set" (and skipped by Auto-fill) iff state.shifts
+// has any explicit entry for it. Empty cells render as OFF by default but the
+// solver treats them as fillable.
+function isUserSet(empId, dk) {
+  return state.shifts[empId] && Object.prototype.hasOwnProperty.call(state.shifts[empId], dk);
+}
+
+// ---------- Rules ----------
+const DEFAULT_RULES = {
+  global: {
+    minCountingWorkersPerDay: 2,         // G3 (applies to weekdays AND weekends)
+    weekdayShouldExceedWeekend: true,    // G2 soft preference
+    maxConsecutiveWorkdays: 5,           // G4 hard (locks override)
+    preferTwoConsecutiveOff: true,       // G8 soft
+    rotateShiftTypesPerPerson: true,     // G5 soft (only for people with multiple allowed shifts)
+    minHoursPerShift: 8,                 // 8h floor: soft warning, manual override allowed
+    openerStartByMin: 8 * 60,            // shift starts at or before 08:00 = "opener"
+    closerEndByMin: 20 * 60,             // shift ends at or after 20:00 = "closer"
+    otCapHoursPerMonth: 40,              // per-person max OT per month (hard)
+    holidays: [],                        // [{date:"YYYY-MM-DD", name:"…"}, …] treated like weekends
+    unitMeetings: []                     // [{date:"YYYY-MM-DD", name:"…"}, …] every staff must work
+  },
+  perEmployee: {
+    "670199": { displayName: "Aksorn",    allowedShifts: ["08:00-16:00"], breakHours: 0, eligibleForOT: true,  worksWeekends: false, countsForHeadcount: false, countsAsOpener: false, countsAsCloser: false },
+    "430084": { displayName: "Piyamas",   allowedShifts: ["08:00-16:00"], breakHours: 0, eligibleForOT: true,  worksWeekends: false, countsForHeadcount: false, countsAsOpener: false, countsAsCloser: false },
+    "680049": { displayName: "Thanaree",  allowedShifts: ["08:00-16:00"], breakHours: 0, eligibleForOT: true,  worksWeekends: false, countsForHeadcount: false, countsAsOpener: false, countsAsCloser: false },
+    "116612": { displayName: "Panadda",   allowedShifts: ["08:00-17:00"], breakHours: 1, eligibleForOT: false, worksWeekends: true,  countsForHeadcount: true,  countsAsOpener: true,  countsAsCloser: false },
+    "670089": { displayName: "Jiraphan",  allowedShifts: ["08:00-16:00","09:00-17:00","08:00-20:00","09:00-20:00"], breakHours: 0, eligibleForOT: true, worksWeekends: true, countsForHeadcount: true, countsAsOpener: true,  countsAsCloser: true },
+    "660049": { displayName: "Pawat",     allowedShifts: ["10:00-18:00","10:00-20:00"], breakHours: 0, eligibleForOT: true, worksWeekends: true, countsForHeadcount: true, countsAsOpener: false, countsAsCloser: true },
+    "660127": { displayName: "Thanaporn", allowedShifts: ["08:00-16:00","08:00-20:00"], breakHours: 0, eligibleForOT: true, worksWeekends: true, countsForHeadcount: true, countsAsOpener: true,  countsAsCloser: true }
+  },
+  priorities: {
+    opener: ["660127", "670089", "116612"],                 // Thanaporn > Jiraphan > Panadda
+    closer: ["660127", "660049", "670089"],                // Thanaporn > Pawat > Jiraphan
+    otTargetShare: { "660127": 70, "660049": 15, "670089": 15 } // % of team OT each person should accumulate
+  }
+};
+if (!state.rules) state.rules = JSON.parse(JSON.stringify(DEFAULT_RULES));
+// Migrate: any missing per-employee field is filled from the same person's
+// default. Fields the user has set are kept.
+for (const id in DEFAULT_RULES.perEmployee) {
+  const def = DEFAULT_RULES.perEmployee[id];
+  if (!state.rules.perEmployee[id]) {
+    state.rules.perEmployee[id] = JSON.parse(JSON.stringify(def));
+    continue;
+  }
+  const cur = state.rules.perEmployee[id];
+  for (const key of Object.keys(def)) {
+    if (cur[key] == null) cur[key] = def[key];
+  }
+}
+if (state.rules.global.otCapHoursPerMonth == null) state.rules.global.otCapHoursPerMonth = 40;
+// Migrate holidays: old format ["YYYY-MM-DD"] → new format [{date, name}]
+if (Array.isArray(state.rules.global.holidays)) {
+  state.rules.global.holidays = state.rules.global.holidays.map(h =>
+    typeof h === "string" ? { date: h, name: "" } : h
+  );
+}
+if (!Array.isArray(state.rules.global.unitMeetings)) state.rules.global.unitMeetings = [];
+// 2026-06-05: Panadda's break is 1h (part-time) and she counts as an opener.
+// Force-correct in case the previous flawed migration set break=0.
+if (state.rules.perEmployee["116612"]) {
+  if (state.rules.perEmployee["116612"].breakHours === 0) state.rules.perEmployee["116612"].breakHours = 1;
+  state.rules.perEmployee["116612"].countsAsOpener = true;
+}
+// Add Panadda to opener priority list (if not already present) so stagger works
+if (state.rules.priorities && Array.isArray(state.rules.priorities.opener)
+    && !state.rules.priorities.opener.includes("116612")) {
+  state.rules.priorities.opener.push("116612");
+}
+
+// Counted hours = raw shift hours minus the employee's break time.
+// V and E are presence codes counted as 8h. OFF/R contribute zero.
+function countedHoursForShift(empId, shift) {
+  if (!shift || shift === "OFF" || shift === "R") return 0;
+  if (shift === "V" || shift === "E") return 8;
+  const r = state.rules?.perEmployee?.[empId];
+  const brk = r?.breakHours || 0;
+  return Math.max(0, shiftHours(shift) - brk);
+}
+// ---------- Auto-lock ----------
+// A month becomes read-only on day 11 of the FOLLOWING month.
+// Example: today = Jun 11 → May is locked.
+function isMonthLocked(year, month) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  let lockYear = year, lockMonth = month + 1;
+  if (lockMonth > 11) { lockMonth = 0; lockYear++; }
+  const deadline = new Date(lockYear, lockMonth, 11);
+  return today >= deadline;
+}
+function isCurrentMonthLocked() { return isMonthLocked(state.year, state.month); }
+function checkLock() {
+  if (!isCurrentMonthLocked()) return false;
+  const el = document.getElementById("saveStatus");
+  if (el) {
+    el.textContent = "🔒 เดือนถูกล็อก — ดูได้อย่างเดียว";
+    el.style.color = "#ffd1cc";
+    el.style.background = "rgba(192,57,43,0.35)";
+    clearTimeout(checkLock._t);
+    checkLock._t = setTimeout(() => updateFileStatus(), 2000);
+  }
+  return true;
+}
+function updateLockUI() {
+  const locked = isCurrentMonthLocked();
+  const autoBtn = document.getElementById("btnAutoFill");
+  const clearBtn = document.getElementById("btnClear");
+  if (autoBtn) autoBtn.disabled = locked;
+  if (clearBtn) clearBtn.disabled = locked;
+  const wrap = document.getElementById("tableWrap");
+  if (wrap) wrap.classList.toggle("month-locked", locked);
+  const badge = document.getElementById("lockBadge");
+  if (badge) badge.style.display = locked ? "" : "none";
+}
+
+function currentMonthKey() {
+  return `${state.year}-${String(state.month + 1).padStart(2, "0")}`;
+}
+function getMinHours() {
+  const v = state.minHoursByMonth[currentMonthKey()];
+  return v != null ? v : (state.minHours != null ? state.minHours : 168);
+}
+function setMinHoursForCurrentMonth(v) {
+  state.minHoursByMonth[currentMonthKey()] = v;
+}
+
+let selection = new Set();  // keys: empId + "|" + dateKey
+let copiedKeys = new Set(); // cells visually marked as "copied"
+let anchorKey = null;       // last single-clicked cell, used as shift-click anchor
+let cursorKey = null;       // tip of the selection for arrow-key navigation
+let isDragging = false;
+let dragMode = null;        // "add" | "remove"  (only used for ctrl-drag toggle mode)
+let dragStartKey = null;
+let dragRectMode = false;   // true = drag paints a rectangle from dragStartKey to cursor
+let preDragSelection = null;// snapshot used for additive (ctrl/shift) drag
+let clipboard = [];         // copied shift values in row-major order
+
+// ---------- Persistence ----------
+// Backend: Node + Express + SQLite at /api/. Every state change debounces a
+// REST call so multiple PCs see the same roster.
+
+let saveTimer = null;
+let lastSavedAt = null;
+let pendingShiftEntries = [];
+let pendingShiftDeletes = [];
+let pendingRules = false;
+let pendingEmployees = false;
+let pendingMinHours = false;
+
+async function api(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body !== undefined) opts.body = JSON.stringify(body);
+  const r = await fetch(path, opts);
+  if (!r.ok) throw new Error(`${method} ${path} → ${r.status}`);
+  return r.json();
+}
+
+function updateFileStatus(extra = null, warn = false) {
+  const el = document.getElementById("saveStatus");
+  if (!el) return;
+  let parts = ["🗄 เซิร์ฟเวอร์"];
+  if (lastSavedAt) parts.push("บันทึก " + lastSavedAt.toLocaleTimeString());
+  if (extra) parts.push(extra);
+  el.textContent = parts.join(" · ");
+  el.style.color = warn ? "#c0392b" : "";
+}
+
+function loadState() {
+  // Initial in-memory state — server load fills employees/shifts/rules.
+  return null;
+}
+
+async function loadStateFromServer() {
+  try {
+    const data = await api('GET', '/api/state');
+    state.employees = data.employees || [];
+    state.shifts = data.shifts || {};
+    state.minHoursByMonth = data.minHoursByMonth || {};
+    state.rules = data.rules || null;
+    state.googleEnabled = !!data.googleEnabled;
+    state.googleLinks = data.googleLinks || {};
+    // Restore the last viewed month/year (saved when the user navigates).
+    if (data.lastViewMonth && typeof data.lastViewMonth === "object") {
+      const { year, month } = data.lastViewMonth;
+      if (typeof year === "number" && typeof month === "number") {
+        state.year = year;
+        state.month = month;
+      }
+    }
+    // Run the same default-rules + migration logic
+    if (!state.rules) state.rules = JSON.parse(JSON.stringify(DEFAULT_RULES));
+    for (const id in DEFAULT_RULES.perEmployee) {
+      const def = DEFAULT_RULES.perEmployee[id];
+      if (!state.rules.perEmployee[id]) {
+        state.rules.perEmployee[id] = JSON.parse(JSON.stringify(def));
+        continue;
+      }
+      const cur = state.rules.perEmployee[id];
+      for (const key of Object.keys(def)) if (cur[key] == null) cur[key] = def[key];
+    }
+    if (state.rules.global.otCapHoursPerMonth == null) state.rules.global.otCapHoursPerMonth = 40;
+    if (Array.isArray(state.rules.global.holidays)) {
+      state.rules.global.holidays = state.rules.global.holidays.map(h =>
+        typeof h === "string" ? { date: h, name: "" } : h
+      );
+    }
+    if (!Array.isArray(state.rules.global.unitMeetings)) state.rules.global.unitMeetings = [];
+    if (state.rules.perEmployee["116612"]) {
+      if (state.rules.perEmployee["116612"].breakHours === 0) state.rules.perEmployee["116612"].breakHours = 1;
+      state.rules.perEmployee["116612"].countsAsOpener = true;
+    }
+    if (state.rules.priorities && Array.isArray(state.rules.priorities.opener)
+        && !state.rules.priorities.opener.includes("116612")) {
+      state.rules.priorities.opener.push("116612");
+    }
+    render();
+    lastSavedAt = new Date();
+    updateFileStatus("โหลดแล้ว");
+  } catch (e) {
+    updateFileStatus("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้: " + e.message, true);
+  }
+}
+
+// saveState — pass a hint of what changed; default = everything.
+function saveState(hint) {
+  if (!hint) hint = { shifts: true, employees: true, rules: true, minHours: true };
+  if (hint.rules)     pendingRules = true;
+  if (hint.employees) pendingEmployees = true;
+  if (hint.minHours)  pendingMinHours = true;
+  if (hint.shifts) {
+    // Coarse full-sync of shift table from state.shifts.
+    pendingShiftEntries = [];
+    for (const empCode of Object.keys(state.shifts || {})) {
+      for (const dateKey of Object.keys(state.shifts[empCode])) {
+        pendingShiftEntries.push({ empCode, dateKey, value: state.shifts[empCode][dateKey] });
+      }
+    }
+  }
+  if (saveTimer) clearTimeout(saveTimer);
+  updateFileStatus("กำลังบันทึก…");
+  saveTimer = setTimeout(flushSave, 400);
+}
+
+async function flushSave() {
+  try {
+    const calls = [];
+    if (pendingRules) calls.push(api('PUT', '/api/rules', state.rules));
+    if (pendingMinHours) calls.push(api('PUT', '/api/min-hours', state.minHoursByMonth || {}));
+    if (pendingEmployees) calls.push(api('PUT', '/api/employees', { employees: state.employees }));
+    if (pendingShiftEntries.length) {
+      calls.push(api('PUT', '/api/shifts', { entries: pendingShiftEntries, deletes: pendingShiftDeletes }));
+    }
+    await Promise.all(calls);
+    pendingRules = pendingEmployees = pendingMinHours = false;
+    pendingShiftEntries = [];
+    pendingShiftDeletes = [];
+    lastSavedAt = new Date();
+    updateFileStatus();
+  } catch (e) {
+    updateFileStatus("บันทึกล้มเหลว: " + e.message, true);
+  }
+}
+
+// ---------- Date helpers ----------
+const MONTHS = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+const WEEKDAYS = ["อา","จ","อ","พ","พฤ","ศ","ส"];
+function daysInMonth(year, month) { return new Date(year, month + 1, 0).getDate(); }
+function dateKey(year, month, day) {
+  const m = String(month + 1).padStart(2, "0");
+  const d = String(day).padStart(2, "0");
+  return `${year}-${m}-${d}`;
+}
+function isWeekend(year, month, day) {
+  const dow = new Date(year, month, day).getDay();
+  return dow === 0 || dow === 6;
+}
+
+// ---------- Shift classification ----------
+const DEPT_OPEN_MIN = 8 * 60;   // 08:00
+const DEPT_CLOSE_MIN = 20 * 60; // 20:00
+function shiftBounds(shift) {
+  if (!shift || shift === "OFF") return null;
+  const m = /^(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})$/.exec(shift);
+  if (!m) return null;
+  return {
+    startMin: parseInt(m[1])*60 + parseInt(m[2]),
+    endMin: parseInt(m[3])*60 + parseInt(m[4])
+  };
+}
+function coversOpen(shift) {
+  const b = shiftBounds(shift); if (!b) return false;
+  return b.startMin <= DEPT_OPEN_MIN;
+}
+function coversClose(shift) {
+  const b = shiftBounds(shift); if (!b) return false;
+  return b.endMin >= DEPT_CLOSE_MIN;
+}
+function shiftHours(shift) {
+  if (!shift || shift === "OFF") return 0;
+  const m = /^(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})$/.exec(shift);
+  if (!m) return 0;
+  const start = parseInt(m[1])*60 + parseInt(m[2]);
+  const end = parseInt(m[3])*60 + parseInt(m[4]);
+  return Math.max(0, (end - start) / 60);
+}
+
+// ---------- Rendering ----------
+function render() {
+  // header controls
+  const monthSel = document.getElementById("monthSel");
+  if (!monthSel.options.length) {
+    MONTHS.forEach((name, i) => {
+      const o = document.createElement("option");
+      o.value = i; o.textContent = name;
+      monthSel.appendChild(o);
+    });
+  }
+  monthSel.value = state.month;
+  document.getElementById("yearInput").value = state.year;
+  document.getElementById("minHoursInput").value = getMinHours();
+
+  const wrap = document.getElementById("tableWrap");
+  const days = daysInMonth(state.year, state.month);
+
+  let html = '<table class="grid">';
+  // colgroup locks every column to a fixed width so cells never reflow
+  html += '<colgroup>';
+  html += '<col class="col-emp">';
+  for (let d = 1; d <= days; d++) html += '<col class="col-day">';
+  html += '<col class="col-total"><col class="col-total"><col class="col-total">';
+  html += '</colgroup>';
+  // Build lookup maps of event date → name for holidays and unit meetings.
+  const holidayMap = new Map();
+  (state.rules?.global?.holidays || []).forEach(h => {
+    if (h && h.date) holidayMap.set(h.date, h.name || "");
+  });
+  const meetingMap = new Map();
+  (state.rules?.global?.unitMeetings || []).forEach(m => {
+    if (m && m.date) meetingMap.set(m.date, m.name || "");
+  });
+  const isHolidayDay = (yr, mo, d) => holidayMap.has(dateKey(yr, mo, d));
+  const isMeetingDay = (yr, mo, d) => meetingMap.has(dateKey(yr, mo, d));
+
+  html += '<thead>';
+  // Row 1 — vertical event labels (only rendered if there are any events
+  // in this month so the row doesn't take up space otherwise).
+  let hasAnyEvent = false;
+  for (let d = 1; d <= days; d++) {
+    const dk = dateKey(state.year, state.month, d);
+    if (holidayMap.has(dk) || meetingMap.has(dk)) { hasAnyEvent = true; break; }
+  }
+  if (hasAnyEvent) {
+    html += '<tr class="event-row">';
+    html += '<th class="emp-col event-emp-col"></th>';
+    for (let d = 1; d <= days; d++) {
+      const dk = dateKey(state.year, state.month, d);
+      const holName = holidayMap.get(dk);
+      const mtgName = meetingMap.get(dk);
+      let cls = "event-cell";
+      let label = "";
+      let title = "";
+      let textColor = "#4a2a8a";
+      if (mtgName !== undefined) {
+        cls += " meeting";
+        label = mtgName || "Unit Meeting";
+        title = ` title="วันประชุมหน่วย — ทุกคนต้องมาทำงาน"`;
+        textColor = "#4a2a8a";
+      } else if (holName !== undefined) {
+        cls += " holiday";
+        label = holName || "วันหยุดนักขัตฤกษ์";
+        title = ` title="วันหยุดนักขัตฤกษ์ — นับเป็นวันเสาร์-อาทิตย์"`;
+        textColor = "#8a4500";
+      }
+      // Render the label as SVG so the rotation is robust across both the
+      // live UI and html2canvas (PNG export). The "วันหยุดนักขัตฤกษ์" default
+      // is too long for a single column, so split it into two lines that
+      // read side-by-side. All events center-align vertically in the cell.
+      let lines = label ? [label] : [];
+      if (label === "วันหยุดนักขัตฤกษ์") lines = ["วันหยุด", "นักขัตฤกษ์"];
+      const CELL_W = 50, CELL_H = 90, MID_Y = CELL_H / 2;
+      const LINE_GAP = 14;
+      const totalSpan = (lines.length - 1) * LINE_GAP;
+      const startX = (CELL_W - totalSpan) / 2;
+      const svgText = lines.map((line, i) => {
+        const x = startX + i * LINE_GAP;
+        return `<text x="${x}" y="${MID_Y}" text-anchor="middle" transform="rotate(-90 ${x} ${MID_Y})" font-family="Sarabun, sans-serif" font-size="11" font-weight="700" fill="${textColor}">${escapeHtml(line)}</text>`;
+      }).join("");
+      const svgLabel = label ? `<svg class="event-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CELL_W} ${CELL_H}" overflow="visible" preserveAspectRatio="xMidYMid meet">${svgText}</svg>` : "";
+      html += `<th class="${cls}"${title}>${svgLabel}</th>`;
+    }
+    html += '<th></th><th></th><th></th>';
+    html += '</tr>';
+  }
+  html += '<tr>';
+  html += '<th class="emp-col">พนักงาน</th>';
+  for (let d = 1; d <= days; d++) {
+    const we = isWeekend(state.year, state.month, d);
+    const hol = isHolidayDay(state.year, state.month, d);
+    const mtg = isMeetingDay(state.year, state.month, d);
+    const dow = WEEKDAYS[new Date(state.year, state.month, d).getDay()];
+    const cls = mtg ? "meeting" : (hol ? "holiday" : (we ? "weekend" : ""));
+    let title = "";
+    if (mtg) title = ' title="วันประชุมหน่วย — ทุกคนต้องมาทำงาน"';
+    else if (hol) title = ' title="วันหยุดนักขัตฤกษ์ — นับเป็นวันเสาร์-อาทิตย์ในการจัดตาราง"';
+    html += `<th class="${cls}"${title}>${dow}<br>${String(d).padStart(2,'0')}</th>`;
+  }
+  html += '<th class="totals-start">ชม.</th><th>OT</th><th>หยุด</th>';
+  html += '</tr></thead><tbody>';
+
+  let sumOT = 0;
+  state.employees.forEach((emp, ei) => {
+    html += '<tr>';
+    html += `<td class="emp-col" data-emp-row="${emp.id}">
+      <div class="emp-cell">
+        <span class="drag-handle" draggable="true" data-drag-emp="${emp.id}" title="ลากเพื่อจัดลำดับ">⋮⋮</span>
+        <div class="emp-info">
+          <div class="emp-name">${escapeHtml(emp.name)}</div>
+          <div class="emp-meta">${escapeHtml(emp.id || "")} · ${escapeHtml(emp.position || "")}</div>
+        </div>
+        <div class="emp-actions">
+          <button title="ดาวน์โหลดปฏิทิน (.ics)" data-ics-emp="${emp.id}">📅</button>
+          ${state.googleEnabled ? `<button title="${googleLinkTitle(emp.id)}" class="gcal ${googleLinkClass(emp.id)}" data-gcal-emp="${emp.id}">G</button>` : ""}
+          <button title="แก้ไข" data-edit-emp="${emp.id}">✎</button>
+          <button title="ลบ" class="del" data-del-emp="${emp.id}">×</button>
+        </div>
+      </div>
+    </td>`;
+
+    let totalH = 0, offCount = 0;
+    for (let d = 1; d <= days; d++) {
+      const dk = dateKey(state.year, state.month, d);
+      const shift = state.shifts[emp.id]?.[dk];
+      const we = isWeekend(state.year, state.month, d);
+      const hol = holidayMap.has(dk);
+      const mtg = meetingMap.has(dk);
+      let cls = "cell";
+      if (shift === "OFF") { cls += " off"; offCount++; }
+      else if (shift === "R") { cls += " r"; offCount++; }
+      else if (shift === "V") { cls += " v"; offCount++; totalH += 8; }
+      else if (shift === "E") { cls += " e"; totalH += 8; }
+      else if (shift) { cls += " shift"; totalH += countedHoursForShift(emp.id, shift); }
+      else { cls += " empty"; }
+      if (mtg) cls += " meeting";
+      else if (hol) cls += " holiday";
+      else if (we) cls += " weekend";
+      const selKey = emp.id + "|" + dk;
+      if (selection.has(selKey)) {
+        cls += " selected";
+        if (!isSelectedAt(ei - 1, d)) cls += " sel-top";
+        if (!isSelectedAt(ei + 1, d)) cls += " sel-bottom";
+        if (!isSelectedAt(ei, d - 1)) cls += " sel-left";
+        if (!isSelectedAt(ei, d + 1)) cls += " sel-right";
+      }
+      if (copiedKeys.has(selKey)) cls += " copied";
+      const display = (shift === "OFF" || shift === "R" || shift === "V" || shift === "E")
+        ? shift
+        : (shift ? shift.replace(":00","").replace(":00","").replace("-","–") : "");
+      html += `<td class="${cls}" data-emp="${emp.id}" data-date="${dk}" title="${shift || ''}">${display}</td>`;
+    }
+    const minH = getMinHours();
+    const empRule = state.rules?.perEmployee?.[emp.id];
+    const otEligible = empRule ? empRule.eligibleForOT !== false : true;
+    const underMin = totalH > 0 && totalH < minH;
+    // OT = monthly counted hours above the month's minimum (not per-shift premium).
+    const otHoursRaw = Math.max(0, totalH - minH);
+    const otHours = otEligible ? otHoursRaw : 0;
+    sumOT += otHours;
+    const hClass = ` class="totals-start${underMin ? ' under-min' : ''}"`;
+    const hTitle = underMin ? ` title="ต่ำกว่าขั้นต่ำ (${minH} ชม. สำหรับ ${currentMonthKey()})"` : "";
+    const otClass = otHours > 0 ? ' class="ot-cell"' : '';
+    const otTitle = otHours > 0 ? ` title="${totalH} ชม. − ${minH} ชม. ขั้นต่ำ = OT ${otHours} ชม."` : '';
+    html += `<td${hClass}${hTitle}>${totalH}</td><td${otClass}${otTitle}>${otHours}</td><td>${offCount}</td>`;
+    html += '</tr>';
+  });
+
+  // Footer: per-day coverage of department hours (08:00–20:00)
+  html += '</tbody><tfoot>';
+  const rows = [
+    { label: "เปิด 08:00",   check: coversOpen },
+    { label: "ปิด 20:00",    check: coversClose },
+    { label: "ทำงาน",       check: s => s && s !== "OFF" && s !== "R" && s !== "V" },
+    { label: "หยุด (รวม)",  check: s => s === "OFF" || s === "R" || s === "V" },
+    { label: "↳ หยุด",       check: s => s === "OFF", sub: true },
+    { label: "↳ คำขอ",       check: s => s === "R",   sub: true },
+    { label: "↳ ลาพักร้อน",  check: s => s === "V",   sub: true }
+  ];
+  for (const row of rows) {
+    const trCls = row.sub ? ' class="footer-sub"' : '';
+    html += `<tr${trCls}><td class="emp-col">${row.label}</td>`;
+    for (let d = 1; d <= days; d++) {
+      const dk = dateKey(state.year, state.month, d);
+      let c = 0;
+      for (const emp of state.employees) {
+        const s = state.shifts[emp.id]?.[dk];
+        if (row.check(s)) c++;
+      }
+      const isCoverage = row.label.startsWith("Open") || row.label.startsWith("Close");
+      const cls = isCoverage && c === 0 ? ' class="uncovered"' : "";
+      const display = isCoverage && c === 0 ? "✕" : c;
+      html += `<td${cls}>${display}</td>`;
+    }
+    // Put the team-wide OT sum at the intersection of "Open 08:00" row × OT column.
+    const isOpenRow = row.label.startsWith("Open");
+    const teamOtCap = state.rules?.global?.otCapHoursPerMonth ?? Infinity;
+    const overTeamCap = sumOT > teamOtCap;
+    const otCellHtml = isOpenRow && sumOT > 0
+      ? `<td class="${overTeamCap ? 'under-min' : 'ot-cell'}" title="${overTeamCap ? `OT ทีมรวม ${sumOT} ชม. > เพดาน ${teamOtCap} ชม.` : `OT ทีมรวม (เพดาน ${teamOtCap} ชม.)`}">${sumOT}</td>`
+      : '<td></td>';
+    html += `<td class="totals-start"></td>${otCellHtml}<td></td></tr>`;
+  }
+  html += '</tfoot></table>';
+  wrap.innerHTML = html;
+
+  wireGrid();
+  updateSelCount();
+  updateLockUI();
+}
+
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+// ---------- Cell interaction ----------
+function wireGrid() {
+  const wrap = document.getElementById("tableWrap");
+  wrap.querySelectorAll("td.cell").forEach(td => {
+    // Left button only — select (single, range with shift, toggle with ctrl, drag extends)
+    td.addEventListener("mousedown", e => {
+      if (e.button !== 0) return; // ignore right-click here (handled by contextmenu)
+      // If an in-cell edit is active, commit it before processing this click.
+      // (mousedown's preventDefault below would otherwise block the input's
+      // blur, leaving the edit stuck.)
+      const activeInput = document.querySelector(".cell-edit-input");
+      if (activeInput) activeInput.blur();
+      const key = td.dataset.emp + "|" + td.dataset.date;
+      dragStartKey = key;
+      if (e.shiftKey && anchorKey) {
+        // Range from anchor to clicked cell; drag extends the rectangle from anchor.
+        dragStartKey = anchorKey;
+        dragRectMode = true;
+        preDragSelection = null;
+        selectRange(anchorKey, key);
+        cursorKey = key;
+      } else if (e.ctrlKey || e.metaKey) {
+        // Toggle individual cell; drag adds/removes individual cells under cursor.
+        dragRectMode = false;
+        preDragSelection = null;
+        if (selection.has(key)) { selection.delete(key); dragMode = "remove"; }
+        else { selection.add(key); dragMode = "add"; }
+        anchorKey = key;
+        cursorKey = key;
+      } else {
+        // Plain click: clear and start a rectangle drag from this cell.
+        selection.clear();
+        selection.add(key);
+        anchorKey = key;
+        cursorKey = key;
+        dragStartKey = key;
+        dragRectMode = true;
+        preDragSelection = null;
+      }
+      repaintSelection();
+      updateSelCount();
+      isDragging = true;
+      updateSelCount();
+      e.preventDefault();
+    });
+    // Note: drag tracking happens on document mousemove (below) so fast drags
+    // never miss cells. Per-cell mouseenter would skip cells on fast moves.
+    // Right-click → open shift picker for this cell (and ensure it's selected)
+    td.addEventListener("contextmenu", e => {
+      e.preventDefault();
+      const key = td.dataset.emp + "|" + td.dataset.date;
+      if (!selection.has(key)) {
+        clearSelection();
+        selection.add(key);
+        td.classList.add("selected");
+        updateSelCount();
+      }
+      openPopover(td);
+    });
+    // Double-click → enter typing mode on the cell
+    td.addEventListener("dblclick", e => {
+      e.preventDefault();
+      startEditingCell(td);
+    });
+  });
+
+  document.addEventListener("mouseup", () => {
+    isDragging = false;
+    dragRectMode = false;
+    preDragSelection = null;
+  });
+  // Document-level drag tracking via elementFromPoint — survives fast drags
+  // that would otherwise skip cells when using per-cell mouseenter.
+  // Throttled to one execution per animation frame so fast drags don't choke
+  // the main thread with hundreds of repaint passes per second.
+  let dragFrameQueued = false;
+  let lastDragEvent = null;
+  document.addEventListener("mousemove", e => {
+    if (!isDragging) return;
+    lastDragEvent = e;
+    if (dragFrameQueued) return;
+    dragFrameQueued = true;
+    requestAnimationFrame(() => {
+      dragFrameQueued = false;
+      const ev = lastDragEvent;
+      if (!isDragging || !ev) return;
+      const el = document.elementFromPoint(ev.clientX, ev.clientY);
+      const td = el && el.closest && el.closest("td.cell");
+      if (!td) return;
+      const key = td.dataset.emp + "|" + td.dataset.date;
+      if (dragRectMode) {
+        if (!dragStartKey) return;
+        selectRange(dragStartKey, key);
+      } else {
+        if (dragMode === "add") selection.add(key);
+        else selection.delete(key);
+      }
+      repaintSelection();
+      updateSelCount();
+    });
+  });
+
+  // Employee actions
+  wrap.querySelectorAll("[data-edit-emp]").forEach(b => {
+    b.addEventListener("click", () => editEmployee(b.dataset.editEmp));
+  });
+  wrap.querySelectorAll("[data-del-emp]").forEach(b => {
+    b.addEventListener("click", () => deleteEmployee(b.dataset.delEmp));
+  });
+  wrap.querySelectorAll("[data-ics-emp]").forEach(b => {
+    b.addEventListener("click", () => {
+      const emp = state.employees.find(e => e.id === b.dataset.icsEmp);
+      if (emp) exportEmployeeIcs(emp);
+    });
+  });
+  wrap.querySelectorAll("[data-gcal-emp]").forEach(b => {
+    b.addEventListener("click", () => openGoogleSyncModal(b.dataset.gcalEmp));
+  });
+
+  // Drag-to-reorder employee rows
+  wrap.querySelectorAll(".drag-handle").forEach(handle => {
+    handle.addEventListener("dragstart", e => {
+      const empId = handle.dataset.dragEmp;
+      e.dataTransfer.setData("text/plain", empId);
+      e.dataTransfer.effectAllowed = "move";
+      handle.closest("tr").classList.add("dragging");
+    });
+    handle.addEventListener("dragend", () => {
+      wrap.querySelectorAll("tr.dragging,tr.drop-above,tr.drop-below")
+        .forEach(el => el.classList.remove("dragging","drop-above","drop-below"));
+    });
+  });
+  wrap.querySelectorAll("tbody tr").forEach(tr => {
+    tr.addEventListener("dragover", e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      const rect = tr.getBoundingClientRect();
+      const above = (e.clientY - rect.top) < rect.height / 2;
+      // Clear sibling indicators
+      wrap.querySelectorAll("tr.drop-above,tr.drop-below")
+        .forEach(el => { if (el !== tr) el.classList.remove("drop-above","drop-below"); });
+      tr.classList.toggle("drop-above", above);
+      tr.classList.toggle("drop-below", !above);
+    });
+    tr.addEventListener("dragleave", e => {
+      // Only clear if leaving the row entirely (not just moving over a child)
+      if (!tr.contains(e.relatedTarget)) tr.classList.remove("drop-above","drop-below");
+    });
+    tr.addEventListener("drop", e => {
+      e.preventDefault();
+      const fromId = e.dataTransfer.getData("text/plain");
+      const targetCell = tr.querySelector("td.emp-col[data-emp-row]");
+      const toId = targetCell ? targetCell.dataset.empRow : null;
+      tr.classList.remove("drop-above","drop-below");
+      if (!fromId || !toId || fromId === toId) return;
+      const rect = tr.getBoundingClientRect();
+      const above = (e.clientY - rect.top) < rect.height / 2;
+      const fromIdx = state.employees.findIndex(x => x.id === fromId);
+      if (fromIdx < 0) return;
+      const [moved] = state.employees.splice(fromIdx, 1);
+      let toIdx = state.employees.findIndex(x => x.id === toId);
+      if (toIdx < 0) toIdx = state.employees.length;
+      if (!above) toIdx++;
+      state.employees.splice(toIdx, 0, moved);
+      saveState();
+      render();
+    });
+  });
+}
+
+function isSelectedAt(ei, day) {
+  if (ei < 0 || ei >= state.employees.length) return false;
+  const days = daysInMonth(state.year, state.month);
+  if (day < 1 || day > days) return false;
+  return selection.has(state.employees[ei].id + "|" + dateKey(state.year, state.month, day));
+}
+function clearSelection() {
+  selection.clear();
+  document.querySelectorAll("td.cell").forEach(td => {
+    td.classList.remove("selected","sel-top","sel-bottom","sel-left","sel-right");
+  });
+}
+function selectRange(fromKey, toKey) {
+  const [empA, dkA] = fromKey.split("|");
+  const [empB, dkB] = toKey.split("|");
+  const iA = state.employees.findIndex(e => e.id === empA);
+  const iB = state.employees.findIndex(e => e.id === empB);
+  if (iA < 0 || iB < 0) return;
+  const dayA = parseInt(dkA.split("-")[2], 10);
+  const dayB = parseInt(dkB.split("-")[2], 10);
+  const i1 = Math.min(iA, iB), i2 = Math.max(iA, iB);
+  const d1 = Math.min(dayA, dayB), d2 = Math.max(dayA, dayB);
+  selection.clear();
+  for (let i = i1; i <= i2; i++) {
+    for (let d = d1; d <= d2; d++) {
+      selection.add(state.employees[i].id + "|" + dateKey(state.year, state.month, d));
+    }
+  }
+}
+function repaintSelection() {
+  // Build a one-shot employee id → index map (avoid O(n²) findIndex in the loop)
+  const empIdx = new Map();
+  state.employees.forEach((e, i) => empIdx.set(e.id, i));
+  const days = daysInMonth(state.year, state.month);
+  const inSel = (ei, d) => {
+    if (ei < 0 || ei >= state.employees.length) return false;
+    if (d < 1 || d > days) return false;
+    return selection.has(state.employees[ei].id + "|" + dateKey(state.year, state.month, d));
+  };
+  document.querySelectorAll("td.cell").forEach(td => {
+    const empId = td.dataset.emp;
+    const dk = td.dataset.date;
+    const ei = empIdx.get(empId);
+    if (ei === undefined) return;
+    const d = parseInt(dk.split("-")[2], 10);
+    const isSel = selection.has(empId + "|" + dk);
+    td.classList.toggle("selected", isSel);
+    td.classList.toggle("sel-top",    isSel && !inSel(ei - 1, d));
+    td.classList.toggle("sel-bottom", isSel && !inSel(ei + 1, d));
+    td.classList.toggle("sel-left",   isSel && !inSel(ei, d - 1));
+    td.classList.toggle("sel-right",  isSel && !inSel(ei, d + 1));
+  });
+}
+function repaintCopied() {
+  document.querySelectorAll("td.cell").forEach(td => {
+    const key = td.dataset.emp + "|" + td.dataset.date;
+    if (copiedKeys.has(key)) td.classList.add("copied");
+    else td.classList.remove("copied");
+  });
+}
+function updateSelCount() { /* selection count moved out of the UI; kept as a no-op for callers */ }
+
+// ---------- Apply shift ----------
+function applyToSelection(value) {
+  if (checkLock()) return;
+  pushUndo();
+  if (!selection.size) {
+    alert("กรุณาเลือกอย่างน้อย 1 ช่องก่อน (คลิกหรือลาก)");
+    return;
+  }
+  for (const key of selection) {
+    const [empId, dk] = key.split("|");
+    if (!state.shifts[empId]) state.shifts[empId] = {};
+    if (value === "" || value == null) {
+      delete state.shifts[empId][dk];
+      pendingShiftDeletes.push({ empCode: empId, dateKey: dk });
+    } else state.shifts[empId][dk] = value;
+  }
+  saveState({ shifts: true });
+  render();
+}
+
+// ---------- Popover ----------
+function openPopover(td) {
+  const empId = td.dataset.emp;
+  const dk = td.dataset.date;
+  const key = empId + "|" + dk;
+  const current = state.shifts[empId]?.[dk] || "";
+  // If the right-clicked cell is part of a multi-selection, the action targets
+  // the whole selection. Otherwise it targets just this one cell.
+  const targetWholeSelection = selection.has(key) && selection.size > 1;
+  closePopover();
+  const host = document.getElementById("popoverHost");
+  const rect = td.getBoundingClientRect();
+  const pop = document.createElement("div");
+  pop.className = "popover";
+  pop.style.left = Math.min(rect.left, window.innerWidth - 260) + "px";
+  pop.style.top = (rect.bottom + 4) + "px";
+  const heading = targetWholeSelection
+    ? `ใช้กับ ${selection.size} ช่องที่เลือก`
+    : `${dk} · ${escapeHtml(getEmp(empId)?.name || empId)}`;
+  const groupsHtml = PRESET_GROUPS.map(g => `
+    <div class="preset-group-label">${escapeHtml(g.label)}</div>
+    <div class="presets">
+      ${g.shifts.map(s => `<button data-v="${s}">${s}</button>`).join("")}
+    </div>
+  `).join("");
+  pop.innerHTML = `
+    <h4>${heading}</h4>
+    ${groupsHtml}
+    <div class="preset-group-label">อื่นๆ</div>
+    <div class="presets">
+      <button data-v="OFF" class="off">หยุด</button>
+      <button data-v="R"   class="r" title="ตามคำขอ">คำขอ</button>
+      <button data-v="V"   class="v" title="ลาพักร้อน (8 ชม.)">ลาพักร้อน</button>
+      <button data-v="E"   class="e" title="กิจกรรม (8 ชม.)">กิจกรรม</button>
+      <button data-v="" class="clear">ล้าง</button>
+    </div>
+    <div class="custom">
+      <input id="popStart" type="time" value="${current && current!=='OFF' ? current.split('-')[0] : '08:00'}"/>
+      <span>–</span>
+      <input id="popEnd" type="time" value="${current && current!=='OFF' ? current.split('-')[1] : '17:00'}"/>
+      <button id="popSet">ตั้ง</button>
+    </div>
+  `;
+  host.appendChild(pop);
+
+  const applyValue = (v) => {
+    if (targetWholeSelection) applyToSelection(v);
+    else setSingle(empId, dk, v);
+  };
+
+  pop.querySelectorAll(".presets button").forEach(b => {
+    b.addEventListener("click", () => {
+      applyValue(b.dataset.v);
+      closePopover();
+    });
+  });
+  pop.querySelector("#popSet").addEventListener("click", () => {
+    const s = pop.querySelector("#popStart").value;
+    const e = pop.querySelector("#popEnd").value;
+    if (!s || !e) return;
+    applyValue(`${s}-${e}`);
+    closePopover();
+  });
+
+  setTimeout(() => {
+    document.addEventListener("mousedown", popoverOutsideClick, { once: false });
+  }, 0);
+}
+function popoverOutsideClick(e) {
+  // Close on any click outside the popover itself. (Previously this also
+  // spared clicks on other cells, which made the popover feel "sticky".)
+  if (!e.target.closest(".popover")) closePopover();
+}
+function closePopover() {
+  document.getElementById("popoverHost").innerHTML = "";
+  document.removeEventListener("mousedown", popoverOutsideClick);
+}
+// ---------- Arrow-key navigation ----------
+// Move the cursor cell one row/column at a time.
+//   - Plain arrow:   move cursor; selection = single new cell
+//   - Shift + arrow: move cursor; selection = range(anchor, cursor)
+function moveCellSelection(dir, withShift) {
+  if (!cursorKey) cursorKey = anchorKey;
+  if (!cursorKey || !state.employees.length) return;
+  const [empId, dk] = cursorKey.split("|");
+  const empIdx = state.employees.findIndex(e => e.id === empId);
+  if (empIdx < 0) return;
+  const day = parseInt(dk.split("-")[2], 10);
+  const days = daysInMonth(state.year, state.month);
+  let newEmpIdx = empIdx, newDay = day;
+  if      (dir === "up")    newEmpIdx = Math.max(0, empIdx - 1);
+  else if (dir === "down")  newEmpIdx = Math.min(state.employees.length - 1, empIdx + 1);
+  else if (dir === "left")  newDay = Math.max(1, day - 1);
+  else if (dir === "right") newDay = Math.min(days, day + 1);
+  if (newEmpIdx === empIdx && newDay === day) return;
+
+  const newEmp = state.employees[newEmpIdx];
+  const newDk = dateKey(state.year, state.month, newDay);
+  const newKey = newEmp.id + "|" + newDk;
+  cursorKey = newKey;
+  if (withShift && anchorKey) {
+    selectRange(anchorKey, newKey);
+  } else {
+    selection.clear();
+    selection.add(newKey);
+    anchorKey = newKey;
+  }
+  repaintSelection();
+  updateSelCount();
+  const td = document.querySelector(`td.cell[data-emp="${newEmp.id}"][data-date="${newDk}"]`);
+  if (td) td.scrollIntoView({ block: "nearest", inline: "nearest" });
+}
+
+// ---------- In-cell editing ----------
+// Activated by:
+//   - Double-click on any cell
+//   - Pressing a printable key while exactly one cell is selected
+// Input is parsed by `normalizeShift` so users can type "8-20", "08:30-17",
+// "off", "r", "v", "e", etc. and it lands in the canonical form.
+
+let editingCellKey = null; // "empId|dk" — only one cell editable at a time
+
+// ---------- Undo / Redo (Ctrl+Z / Ctrl+Y) ----------
+// We snapshot state.shifts before every mutation. Undo / redo restore the
+// snapshot and queue the necessary deletes so the server sync stays in
+// sync (the shift-upsert endpoint can't infer deletes on its own).
+const undoStack = [];
+const redoStack = [];
+const MAX_UNDO = 100;
+
+function cloneShifts(s) { return JSON.parse(JSON.stringify(s || {})); }
+
+function pushUndo() {
+  undoStack.push(cloneShifts(state.shifts));
+  if (undoStack.length > MAX_UNDO) undoStack.shift();
+  redoStack.length = 0;
+}
+
+function queueDeletesFor(before, after) {
+  // For every cell in `before` that doesn't exist in `after`, queue a server delete
+  for (const eid in before) {
+    for (const dk in before[eid]) {
+      if (!(after[eid] && Object.prototype.hasOwnProperty.call(after[eid], dk))) {
+        pendingShiftDeletes.push({ empCode: eid, dateKey: dk });
+      }
+    }
+  }
+}
+
+function flashSaveStatus(msg) {
+  const el = document.getElementById("saveStatus");
+  if (!el) return;
+  el.textContent = msg;
+  clearTimeout(flashSaveStatus._t);
+  flashSaveStatus._t = setTimeout(updateFileStatus, 1200);
+}
+
+function undo() {
+  if (!undoStack.length) { flashSaveStatus("↩ ไม่มีอะไรให้ย้อนกลับ"); return; }
+  if (checkLock()) return;
+  const beforeShifts = cloneShifts(state.shifts);
+  redoStack.push(beforeShifts);
+  const afterShifts = undoStack.pop();
+  queueDeletesFor(beforeShifts, afterShifts);
+  state.shifts = afterShifts;
+  saveState({ shifts: true });
+  render();
+  flashSaveStatus(`↩ ย้อนกลับ (เหลือ ${undoStack.length})`);
+}
+
+function redo() {
+  if (!redoStack.length) { flashSaveStatus("↪ ไม่มีอะไรให้ทำซ้ำ"); return; }
+  if (checkLock()) return;
+  const beforeShifts = cloneShifts(state.shifts);
+  undoStack.push(beforeShifts);
+  const afterShifts = redoStack.pop();
+  queueDeletesFor(beforeShifts, afterShifts);
+  state.shifts = afterShifts;
+  saveState({ shifts: true });
+  render();
+  flashSaveStatus(`↪ ทำซ้ำ (เหลือ ${redoStack.length})`);
+}
+
+function startEditingCell(td, initialText = "") {
+  if (!td) return;
+  if (checkLock()) return;
+  const empId = td.dataset.emp;
+  const dk = td.dataset.date;
+  if (!empId || !dk) return;
+  // Don't double-activate
+  if (editingCellKey === empId + "|" + dk) return;
+  editingCellKey = empId + "|" + dk;
+
+  const current = state.shifts[empId]?.[dk] || "";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "cell-edit-input";
+  input.value = initialText || current;
+  input.maxLength = 16;
+  input.spellcheck = false;
+  input.autocomplete = "off";
+
+  // Replace the cell's display content with the input
+  const originalHtml = td.innerHTML;
+  td.innerHTML = "";
+  td.appendChild(input);
+  td.classList.add("editing");
+
+  // Focus and select-all so typed text replaces existing
+  setTimeout(() => {
+    input.focus();
+    if (initialText) {
+      input.setSelectionRange(input.value.length, input.value.length);
+    } else {
+      input.select();
+    }
+  }, 0);
+
+  const commit = () => {
+    const raw = input.value;
+    editingCellKey = null;
+    td.classList.remove("editing");
+    if (raw.trim() === "") {
+      // Empty input → clear cell
+      setSingle(empId, dk, "");
+      return;
+    }
+    const parsed = normalizeShift(raw);
+    if (parsed) setSingle(empId, dk, parsed);
+    else {
+      // Unrecognized: revert to original
+      td.innerHTML = originalHtml;
+      flashCellInvalid(td);
+    }
+  };
+  const cancel = () => {
+    editingCellKey = null;
+    td.classList.remove("editing");
+    td.innerHTML = originalHtml;
+  };
+
+  input.addEventListener("keydown", e => {
+    if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); commit(); }
+    else if (e.key === "Escape") { e.preventDefault(); cancel(); }
+    e.stopPropagation(); // don't let document keydown re-trigger editing
+  });
+  input.addEventListener("blur", commit);
+}
+
+function flashCellInvalid(td) {
+  td.style.transition = "background-color 0.4s";
+  const bg = td.style.backgroundColor;
+  td.style.backgroundColor = "#fce4ec";
+  setTimeout(() => { td.style.backgroundColor = bg; }, 400);
+}
+
+function setSingle(empId, dk, value) {
+  if (checkLock()) return;
+  pushUndo();
+  if (!state.shifts[empId]) state.shifts[empId] = {};
+  if (value === "" || value == null) { delete state.shifts[empId][dk]; pendingShiftDeletes.push({ empCode: empId, dateKey: dk }); }
+  else state.shifts[empId][dk] = value;
+  saveState({ shifts: true });
+  render();
+}
+
+// ---------- Employees ----------
+function getEmp(id) { return state.employees.find(e => e.id === id); }
+
+function addEmployee() {
+  showModal({
+    title: "เพิ่มพนักงาน",
+    fields: [
+      { name: "id", label: "รหัสพนักงาน", value: "" },
+      { name: "name", label: "ชื่อ", value: "" },
+      { name: "position", label: "ตำแหน่ง", value: "" }
+    ],
+    onSubmit: (vals) => {
+      if (!vals.id || !vals.name) { alert("ต้องระบุรหัสและชื่อ"); return false; }
+      if (getEmp(vals.id)) { alert("รหัสนี้มีอยู่แล้ว"); return false; }
+      state.employees.push(vals);
+      saveState(); render();
+    }
+  });
+}
+function editEmployee(id) {
+  const emp = getEmp(id);
+  if (!emp) return;
+  showModal({
+    title: "แก้ไขพนักงาน",
+    fields: [
+      { name: "id", label: "รหัสพนักงาน", value: emp.id, readonly: true },
+      { name: "name", label: "ชื่อ", value: emp.name },
+      { name: "position", label: "ตำแหน่ง", value: emp.position || "" }
+    ],
+    onSubmit: (vals) => {
+      emp.name = vals.name; emp.position = vals.position;
+      saveState(); render();
+    }
+  });
+}
+async function deleteEmployee(id) {
+  if (!confirm(`ลบ ${getEmp(id)?.name}? ตารางเวรของพนักงานคนนี้จะถูกลบด้วย`)) return;
+  state.employees = state.employees.filter(e => e.id !== id);
+  delete state.shifts[id];
+  // The DELETE endpoint cascades shifts on the server, so we only need to
+  // sync the employees list back.
+  try { await api('DELETE', `/api/employees/${encodeURIComponent(id)}`); } catch (e) { console.warn(e); }
+  saveState({ employees: true });
+  render();
+}
+
+// ---------- Row tools ----------
+function fillRowDialog() {
+  if (!state.employees.length) { alert("กรุณาเพิ่มพนักงานก่อน"); return; }
+  showModal({
+    title: "เติมแถวพนักงาน",
+    fields: [
+      { name: "empId", label: "พนักงาน", type: "select", options: state.employees.map(e => ({value: e.id, label: e.name})) },
+      { name: "weekday", label: "เวรวันจันทร์-ศุกร์ (เช่น 08:00-17:00 หรือเว้นว่างเพื่อข้าม)", value: "08:00-17:00" },
+      { name: "weekend", label: "วันเสาร์-อาทิตย์ (เช่น OFF หรือเว้นว่างเพื่อข้าม)", value: "OFF" },
+      { name: "overwrite", label: "ทับค่าเดิม? (yes/no)", value: "no" }
+    ],
+    onSubmit: (vals) => {
+      const empId = vals.empId;
+      const overwrite = /^y/i.test(vals.overwrite);
+      if (!state.shifts[empId]) state.shifts[empId] = {};
+      const days = daysInMonth(state.year, state.month);
+      for (let d = 1; d <= days; d++) {
+        const dk = dateKey(state.year, state.month, d);
+        const we = isWeekend(state.year, state.month, d);
+        const target = we ? vals.weekend.trim() : vals.weekday.trim();
+        if (!target) continue;
+        if (!overwrite && state.shifts[empId][dk]) continue;
+        state.shifts[empId][dk] = target;
+      }
+      saveState(); render();
+    }
+  });
+}
+function copyRowDialog() {
+  if (state.employees.length < 2) { alert("ต้องมีพนักงานอย่างน้อย 2 คน"); return; }
+  showModal({
+    title: "คัดลอกแถว",
+    fields: [
+      { name: "from", label: "จาก", type: "select", options: state.employees.map(e => ({value: e.id, label: e.name})) },
+      { name: "to", label: "ไป", type: "select", options: state.employees.map(e => ({value: e.id, label: e.name})) },
+      { name: "overwrite", label: "ทับค่าเดิม? (yes/no)", value: "yes" }
+    ],
+    onSubmit: (vals) => {
+      if (vals.from === vals.to) { alert("กรุณาเลือกพนักงานคนละคน"); return false; }
+      const src = state.shifts[vals.from] || {};
+      if (!state.shifts[vals.to]) state.shifts[vals.to] = {};
+      const dst = state.shifts[vals.to];
+      const overwrite = /^y/i.test(vals.overwrite);
+      const days = daysInMonth(state.year, state.month);
+      for (let d = 1; d <= days; d++) {
+        const dk = dateKey(state.year, state.month, d);
+        if (src[dk] == null) continue;
+        if (!overwrite && dst[dk]) continue;
+        dst[dk] = src[dk];
+      }
+      saveState(); render();
+    }
+  });
+}
+
+// ---------- Modal ----------
+function showModal({ title, fields, onSubmit }) {
+  const host = document.getElementById("modalHost");
+  const bg = document.createElement("div");
+  bg.className = "modal-bg";
+  bg.innerHTML = `
+    <div class="modal">
+      <h3>${escapeHtml(title)}</h3>
+      ${fields.map(f => `
+        <div class="field">
+          <label>${escapeHtml(f.label)}</label>
+          ${f.type === "select"
+            ? `<select name="${f.name}">${f.options.map(o => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`).join("")}</select>`
+            : `<input name="${f.name}" value="${escapeHtml(f.value ?? "")}" ${f.readonly ? "readonly" : ""}/>`}
+        </div>
+      `).join("")}
+      <div class="actions">
+        <button class="cancel">ยกเลิก</button>
+        <button class="ok">ตกลง</button>
+      </div>
+    </div>
+  `;
+  host.appendChild(bg);
+  const close = () => host.innerHTML = "";
+  bg.querySelector(".cancel").addEventListener("click", close);
+  bg.addEventListener("click", e => { if (e.target === bg) close(); });
+  bg.querySelector(".ok").addEventListener("click", () => {
+    const vals = {};
+    fields.forEach(f => {
+      const el = bg.querySelector(`[name="${f.name}"]`);
+      vals[f.name] = el.value;
+    });
+    const result = onSubmit(vals);
+    if (result !== false) close();
+  });
+}
+
+// ---------- Import / Export ----------
+function exportJson() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+  downloadBlob(blob, `schedule-${state.year}-${String(state.month+1).padStart(2,'0')}.json`);
+}
+function exportCsv() {
+  const days = daysInMonth(state.year, state.month);
+  const rows = [];
+  const header = ["EmployeeID","Name","Position"];
+  for (let d = 1; d <= days; d++) header.push(dateKey(state.year, state.month, d));
+  rows.push(header);
+  for (const emp of state.employees) {
+    const row = [emp.id, emp.name, emp.position || ""];
+    for (let d = 1; d <= days; d++) {
+      const dk = dateKey(state.year, state.month, d);
+      row.push(state.shifts[emp.id]?.[dk] || "");
+    }
+    rows.push(row);
+  }
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  downloadBlob(blob, `schedule-${state.year}-${String(state.month+1).padStart(2,'0')}.csv`);
+}
+function downloadBlob(blob, name) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+// ---------- Rules Editor Modal ----------
+function openRulesEditor() {
+  const r = state.rules;
+  const empIdsInRules = Object.keys(r.perEmployee);
+  // Show any roster employees missing from rules so the user notices
+  const empIdsInRoster = state.employees.map(e => e.id);
+  const orphanRosterIds = empIdsInRoster.filter(id => !empIdsInRules.includes(id));
+  const orphanRuleIds = empIdsInRules.filter(id => !empIdsInRoster.includes(id));
+
+  const host = document.getElementById("modalHost");
+  const bg = document.createElement("div");
+  bg.className = "modal-bg";
+
+  const perEmpRows = empIdsInRules.map(id => {
+    const er = r.perEmployee[id];
+    const rosterEmp = state.employees.find(e => e.id === id);
+    const nameLabel = rosterEmp ? rosterEmp.name : (er.displayName || id);
+    return `
+      <tr data-emp-rule="${id}">
+        <td><b>${escapeHtml(er.displayName || nameLabel)}</b><br><span class="rule-meta">${escapeHtml(id)}${rosterEmp ? "" : " · ไม่อยู่ในระบบ"}</span></td>
+        <td><input class="rule-input wide" name="allowedShifts" value="${escapeHtml(er.allowedShifts.join(", "))}" placeholder="08:00-16:00, 08:00-20:00"/></td>
+        <td><input type="number" class="rule-input narrow" name="breakHours" value="${er.breakHours||0}" min="0" max="4" step="1" style="width:50px"/></td>
+        <td><input type="checkbox" name="eligibleForOT" ${er.eligibleForOT!==false?"checked":""}/></td>
+        <td><input type="checkbox" name="worksWeekends" ${er.worksWeekends?"checked":""}/></td>
+        <td><input type="checkbox" name="countsForHeadcount" ${er.countsForHeadcount?"checked":""}/></td>
+        <td><input type="checkbox" name="countsAsOpener" ${er.countsAsOpener?"checked":""}/></td>
+        <td><input type="checkbox" name="countsAsCloser" ${er.countsAsCloser?"checked":""}/></td>
+      </tr>`;
+  }).join("");
+
+  const otShareRows = Object.entries(r.priorities.otTargetShare).map(([id, pct]) => {
+    const emp = state.employees.find(e => e.id === id);
+    const er = r.perEmployee[id];
+    const label = emp ? emp.name : (er?.displayName || id);
+    return `<tr><td>${escapeHtml(label)}</td><td><input type="number" class="rule-input narrow" data-share-id="${id}" value="${pct}" min="0" max="100"/></td><td>%</td></tr>`;
+  }).join("");
+
+  bg.innerHTML = `
+    <div class="modal rules-modal">
+      <h3>📋 กฎการจัดตารางเวร</h3>
+
+      <div class="rules-section">
+        <h4>ทั่วไป</h4>
+        <div class="rules-grid">
+          <label>จำนวนคนทำงานขั้นต่ำ / วัน <input type="number" id="rGlMin" value="${r.global.minCountingWorkersPerDay}" min="0"/></label>
+          <label>วันทำงานติดต่อกันสูงสุด <input type="number" id="rGlMax" value="${r.global.maxConsecutiveWorkdays}" min="0"/></label>
+          <label>เริ่มเวรเปิดก่อน (นาที) <input type="number" id="rGlOpen" value="${r.global.openerStartByMin}"/></label>
+          <label>จบเวรปิดหลัง (นาที) <input type="number" id="rGlClose" value="${r.global.closerEndByMin}"/></label>
+          <label>ชั่วโมงขั้นต่ำ / เวร <input type="number" id="rGlMinShift" value="${r.global.minHoursPerShift}"/></label>
+          <label>เพดาน OT รวมทีม (ชม./เดือน) <input type="number" id="rGlOtCap" value="${r.global.otCapHoursPerMonth}" min="0"/></label>
+        </div>
+        <div class="rules-toggles">
+          <label><input type="checkbox" id="rGlWdExc" ${r.global.weekdayShouldExceedWeekend?"checked":""}/> วันธรรมดามีคนมากกว่าวันหยุด</label>
+          <label><input type="checkbox" id="rGl2Off"  ${r.global.preferTwoConsecutiveOff?"checked":""}/> เน้นหยุด 2 วันติดกัน</label>
+          <label><input type="checkbox" id="rGlRotate" ${r.global.rotateShiftTypesPerPerson?"checked":""}/> สลับเวลาเวร</label>
+        </div>
+        <div class="holidays-row">
+          <div class="label-col">🗓 วันหยุดนักขัตฤกษ์ (นับเป็นวันหยุดในการจัดตาราง)</div>
+          <div id="rGlHolsList" class="holidays-row" style="margin:0; flex:1; min-width: 100%"></div>
+          <div class="hol-add">
+            <input type="date" id="rGlHolsDate"/>
+            <input type="text" id="rGlHolsName" placeholder="ชื่อวันหยุด (เช่น ปีใหม่)" style="padding: 4px 8px; border: 1px solid var(--border); border-radius: 5px; font-family: Sarabun; font-size: 12px;"/>
+            <button type="button" id="rGlHolsAdd">+ เพิ่ม</button>
+          </div>
+        </div>
+        <div class="holidays-row">
+          <div class="label-col">👥 วันประชุมหน่วย (ทุกคนต้องมาทำงาน)</div>
+          <div id="rGlMtgsList" class="holidays-row" style="margin:0; flex:1; min-width: 100%"></div>
+          <div class="hol-add">
+            <input type="date" id="rGlMtgsDate"/>
+            <input type="text" id="rGlMtgsName" placeholder="ชื่อกิจกรรม (เช่น ประชุมประจำเดือน)" style="padding: 4px 8px; border: 1px solid var(--border); border-radius: 5px; font-family: Sarabun; font-size: 12px;"/>
+            <button type="button" id="rGlMtgsAdd">+ เพิ่ม</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="rules-section">
+        <h4>รายบุคคล</h4>
+        ${orphanRosterIds.length ? `<div class="rule-warn">⚠ พนักงานในระบบที่ไม่มีกฎ: ${orphanRosterIds.join(", ")}</div>` : ""}
+        ${orphanRuleIds.length ? `<div class="rule-warn">⚠ มีกฎสำหรับคนที่ไม่อยู่ในระบบ: ${orphanRuleIds.join(", ")}</div>` : ""}
+        <table class="rules-table">
+          <colgroup>
+            <col class="col-person"><col class="col-shifts">
+            <col class="col-break"><col class="col-flag">
+            <col class="col-flag"><col class="col-flag">
+            <col class="col-flag"><col class="col-flag">
+          </colgroup>
+          <thead><tr>
+            <th>ชื่อ</th><th>เวรที่อนุญาต</th><th>พัก<br>(ชม.)</th><th>รับ<br>OT</th><th>วัน<br>หยุด</th><th>นับ<br>หัว</th><th>เปิด<br>เวร</th><th>ปิด<br>เวร</th>
+          </tr></thead>
+          <tbody>${perEmpRows}</tbody>
+        </table>
+      </div>
+
+      <div class="rules-section">
+        <h4>ลำดับความสำคัญ</h4>
+        <label class="full">ลำดับคนเปิดเวร (รหัสพนักงานคั่นด้วยจุลภาค สำคัญสุดก่อน)
+          <input type="text" id="rPriOpener" class="rule-input wide" value="${r.priorities.opener.join(", ")}"/></label>
+        <label class="full">ลำดับคนปิดเวร
+          <input type="text" id="rPriCloser" class="rule-input wide" value="${r.priorities.closer.join(", ")}"/></label>
+        <div class="rule-meta" style="margin: 6px 0">สัดส่วน OT เป้าหมาย (รวมเป็น 100):</div>
+        <table class="rules-table compact"><tbody>${otShareRows}</tbody></table>
+      </div>
+
+      <div class="actions">
+        <button class="ok" id="rulesClose">ปิด</button>
+      </div>
+    </div>
+  `;
+  host.appendChild(bg);
+  // close() always flushes any pending edits, refreshes the grid so the
+  // changes show up immediately, and removes the modal.
+  const close = () => {
+    try { commitRules(); } catch (e) { console.warn(e); }
+    host.innerHTML = "";
+    render();
+  };
+  bg.querySelector("#rulesClose").addEventListener("click", close);
+  bg.addEventListener("click", e => { if (e.target === bg) close(); });
+
+  // ── Events chip-list state + UI ──
+  // Generic helper used for both Holidays and Unit Meetings — they share the
+  // same data shape ({date, name}) and the same chip-list UX.
+  function buildEventChipUi({
+    initial, listSelector, dateInputSelector, nameInputSelector, addBtnSelector,
+    chipClass, emptyText, onChange
+  }) {
+    const working = (initial || []).map(e =>
+      typeof e === "string" ? { date: e, name: "" } : { date: e.date, name: e.name || "" }
+    );
+    const list = bg.querySelector(listSelector);
+    const dateInput = bg.querySelector(dateInputSelector);
+    const nameInput = bg.querySelector(nameInputSelector);
+    const addBtn = bg.querySelector(addBtnSelector);
+
+    function render() {
+      if (!working.length) {
+        list.innerHTML = `<span class="hol-empty">${emptyText}</span>`;
+        return;
+      }
+      working.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+      list.innerHTML = working.map((e, idx) => {
+        const dt = new Date(e.date + "T00:00:00");
+        const pretty = isNaN(dt) ? e.date : dt.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+        const namePart = e.name ? `: <span class="ev-chip-name">${escapeHtml(e.name)}</span>` : "";
+        return `<span class="hol-chip ${chipClass}" title="${e.date}${e.name ? " — " + e.name : ""}">${pretty}${namePart}<button type="button" data-rm-idx="${idx}">×</button></span>`;
+      }).join("");
+      list.querySelectorAll("button[data-rm-idx]").forEach(b => {
+        b.addEventListener("click", () => {
+          const idx = parseInt(b.dataset.rmIdx, 10);
+          working.splice(idx, 1);
+          render();
+          if (typeof onChange === "function") onChange();
+        });
+      });
+    }
+    addBtn.addEventListener("click", () => {
+      const d = dateInput.value;
+      if (!d) return;
+      const n = (nameInput.value || "").trim();
+      // Replace if same date already exists
+      const existing = working.findIndex(e => e.date === d);
+      if (existing >= 0) working[existing].name = n;
+      else working.push({ date: d, name: n });
+      dateInput.value = "";
+      nameInput.value = "";
+      render();
+      if (typeof onChange === "function") onChange();
+    });
+    [dateInput, nameInput].forEach(inp => {
+      inp.addEventListener("keydown", e => {
+        if (e.key === "Enter") { e.preventDefault(); addBtn.click(); }
+      });
+    });
+    render();
+    return () => working.slice();   // getter to read back final list
+  }
+
+  const getHolidays = buildEventChipUi({
+    initial: r.global.holidays,
+    listSelector: "#rGlHolsList",
+    dateInputSelector: "#rGlHolsDate",
+    nameInputSelector: "#rGlHolsName",
+    addBtnSelector: "#rGlHolsAdd",
+    chipClass: "hol-chip-holiday",
+    emptyText: "ยังไม่มีวันหยุด — เพิ่มได้จากตัวเลือกวันที่ด้านล่าง",
+    onChange: () => commitRules(),
+  });
+  const getMeetings = buildEventChipUi({
+    initial: r.global.unitMeetings,
+    listSelector: "#rGlMtgsList",
+    dateInputSelector: "#rGlMtgsDate",
+    nameInputSelector: "#rGlMtgsName",
+    addBtnSelector: "#rGlMtgsAdd",
+    chipClass: "hol-chip-meeting",
+    emptyText: "ยังไม่มีวันประชุมหน่วย — เพิ่มได้จากตัวเลือกวันที่ด้านล่าง",
+    onChange: () => commitRules(),
+  });
+
+  // Read all fields from the modal back into state.rules and queue a save.
+  // Called on every input change (auto-save) and again on modal close.
+  function commitRules() {
+    r.global.minCountingWorkersPerDay = parseInt(bg.querySelector("#rGlMin").value) || 0;
+    r.global.maxConsecutiveWorkdays = parseInt(bg.querySelector("#rGlMax").value) || 0;
+    r.global.openerStartByMin = parseInt(bg.querySelector("#rGlOpen").value) || 0;
+    r.global.closerEndByMin = parseInt(bg.querySelector("#rGlClose").value) || 0;
+    r.global.minHoursPerShift = parseInt(bg.querySelector("#rGlMinShift").value) || 0;
+    r.global.otCapHoursPerMonth = parseInt(bg.querySelector("#rGlOtCap").value) || 0;
+    r.global.weekdayShouldExceedWeekend = bg.querySelector("#rGlWdExc").checked;
+    r.global.preferTwoConsecutiveOff = bg.querySelector("#rGl2Off").checked;
+    r.global.rotateShiftTypesPerPerson = bg.querySelector("#rGlRotate").checked;
+    r.global.holidays = getHolidays().sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+    r.global.unitMeetings = getMeetings().sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+
+    bg.querySelectorAll("tr[data-emp-rule]").forEach(tr => {
+      const id = tr.dataset.empRule;
+      const er = r.perEmployee[id];
+      const allowedRaw = tr.querySelector('[name="allowedShifts"]').value;
+      er.allowedShifts = allowedRaw.split(",").map(s => normalizeShift(s.trim())).filter(Boolean);
+      er.breakHours = parseInt(tr.querySelector('[name="breakHours"]').value) || 0;
+      er.eligibleForOT = tr.querySelector('[name="eligibleForOT"]').checked;
+      er.worksWeekends = tr.querySelector('[name="worksWeekends"]').checked;
+      er.countsForHeadcount = tr.querySelector('[name="countsForHeadcount"]').checked;
+      er.countsAsOpener = tr.querySelector('[name="countsAsOpener"]').checked;
+      er.countsAsCloser = tr.querySelector('[name="countsAsCloser"]').checked;
+    });
+
+    r.priorities.opener = bg.querySelector("#rPriOpener").value.split(",").map(s => s.trim()).filter(Boolean);
+    r.priorities.closer = bg.querySelector("#rPriCloser").value.split(",").map(s => s.trim()).filter(Boolean);
+    bg.querySelectorAll("[data-share-id]").forEach(inp => {
+      const id = inp.dataset.shareId;
+      r.priorities.otTargetShare[id] = parseInt(inp.value) || 0;
+    });
+
+    saveState({ rules: true });
+  }
+
+  // Wire auto-save to every input / select / checkbox in the modal. Holiday
+  // and unit-meeting chip add/remove already call commitRules via the
+  // wrapper installed at the end of buildEventChipUi (see render() inside
+  // that helper). The non-chip inputs are listened to here.
+  bg.querySelectorAll("input, select").forEach(el => {
+    el.addEventListener("input", commitRules);
+    el.addEventListener("change", commitRules);
+  });
+}
+
+// ---------- Auto-fill (Phase 2: server-side OR-tools CP-SAT) ----------
+// All the heavy lifting now lives in python/optimizer.py. This client just
+// asks the server, waits ~1 second, and applies the returned schedule.
+async function autoFill() {
+  if (checkLock()) return;
+  if (!confirm(`จัดตารางอัตโนมัติสำหรับ ${currentMonthKey()}?`)) return;
+  updateFileStatus('กำลังจัดตาราง…');
+  const btn = document.getElementById('btnAutoFill');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ กำลังจัด…'; }
+  try {
+    const result = await api('POST', '/api/schedule/optimize', {
+      year: state.year, month: state.month
+    });
+    if (result.status !== 'ok') {
+      const msg = result.message || 'ไม่ทราบสาเหตุ';
+      alert(`ไม่สามารถจัดตารางอัตโนมัติได้
+
+${msg}
+
+ลองทำดังนี้:
+• เพิ่มเพดาน OT
+• ลดชั่วโมงขั้นต่ำของเดือนนี้
+• ผ่อนคลายกฎรายบุคคล
+• ลบช่องที่ตั้งไว้บางส่วน`);
+      updateFileStatus('จัดอัตโนมัติล้มเหลว', true);
+      return;
+    }
+    // Apply schedule. The server's schedule includes every cell for the month;
+    // we only overwrite cells that aren't already set with the same value.
+    let applied = 0;
+    pushUndo();
+    for (const empCode in result.schedule) {
+      if (!state.shifts[empCode]) state.shifts[empCode] = {};
+      for (const dk in result.schedule[empCode]) {
+        const v = result.schedule[empCode][dk];
+        if (state.shifts[empCode][dk] !== v) {
+          state.shifts[empCode][dk] = v;
+          applied++;
+        }
+      }
+    }
+    saveState({ shifts: true });
+    render();
+    const stats = result.stats || {};
+    const teamOt = stats.teamOt ?? 0;
+    const objective = result.objective ?? '';
+    alert(`✅ จัดตารางสำเร็จใน ${result.elapsedMs} มิลลิวินาที
+อัพเดต ${applied} ช่อง
+OT ทีมรวม: ${teamOt} ชม.
+คะแนน (ยิ่งต่ำยิ่งดี): ${objective}`);
+  } catch (e) {
+    alert('จัดตารางอัตโนมัติล้มเหลว: ' + e.message);
+    updateFileStatus('เกิดข้อผิดพลาด', true);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '⚡ จัดอัตโนมัติ'; }
+  }
+}
+
+// ---------- Excel Import ----------
+const MONTH_NAME_TO_IDX = {
+  JAN:0, JANUARY:0, FEB:1, FEBRUARY:1, MAR:2, MARCH:2, APR:3, APRIL:3,
+  MAY:4, JUN:5, JUNE:5, JUL:6, JULY:6, AUG:7, AUGUST:7,
+  SEP:8, SEPT:8, SEPTEMBER:8, OCT:9, OCTOBER:9, NOV:10, NOVEMBER:10, DEC:11, DECEMBER:11
+};
+// As requested, don't import sheets later than this (inclusive). Adjust if needed.
+const IMPORT_MAX_MONTH = 5; // 5 = June
+
+function normalizeShift(raw) {
+  if (raw == null) return null;
+  const s = String(raw).trim().toUpperCase();
+  if (!s) return null;
+  if (s === "OFF" || s === "R" || s === "V" || s === "E") return s;
+  // Match H-H, HH-HH, with optional :MM on either side; allow en/em-dash
+  const m = /^(\d{1,2})(?::(\d{2}))?\s*[-–—]\s*(\d{1,2})(?::(\d{2}))?$/.exec(s);
+  if (m) {
+    const h1 = String(parseInt(m[1])).padStart(2,"0");
+    const mm1 = m[2] || "00";
+    const h2 = String(parseInt(m[3])).padStart(2,"0");
+    const mm2 = m[4] || "00";
+    return `${h1}:${mm1}-${h2}:${mm2}`;
+  }
+  return null; // unrecognized
+}
+
+function importExcel() {
+  if (typeof XLSX === "undefined") {
+    alert("ไม่สามารถโหลดตัวอ่าน Excel (SheetJS) ได้ กรุณาตรวจสอบอินเทอร์เน็ตและรีเฟรชหน้านี้");
+    return;
+  }
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".xlsx,.xls,.xlsm";
+  input.onchange = () => {
+    const file = input.files[0];
+    if (!file) return;
+    const yearMatch = file.name.match(/(20\d{2})/);
+    const year = yearMatch ? parseInt(yearMatch[1]) : state.year;
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: "array" });
+        const summary = parseWorkbookIntoState(wb, year);
+        // Push the whole imported state to the server in one shot (faster
+        // than the debounced incremental sync for large imports).
+        await api('POST', '/api/state/import', {
+          employees: state.employees,
+          shifts: state.shifts,
+          minHoursByMonth: state.minHoursByMonth
+        });
+        lastSavedAt = new Date();
+        updateFileStatus();
+        render();
+        alert(
+          `นำเข้า Excel เสร็จสิ้น\n\n` +
+          `ปี: ${year}\n` +
+          `ชีตที่นำเข้า: ${summary.sheetsImported.join(", ") || "(ไม่มี)"}\n` +
+          `ชีตที่ข้าม: ${summary.sheetsSkipped.join(", ") || "(ไม่มี)"}\n` +
+          `เพิ่มพนักงาน: ${summary.employeesAdded}\n` +
+          `บันทึกเวร: ${summary.shiftsWritten}\n` +
+          `ช่องที่ไม่เข้าใจ: ${summary.warnings}` +
+          (summary.warningSamples.length ? `\nตัวอย่าง: ${summary.warningSamples.slice(0,5).join(", ")}` : "")
+        );
+      } catch (err) {
+        console.error(err);
+        alert("นำเข้า Excel ล้มเหลว: " + err.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+  input.click();
+}
+
+function parseWorkbookIntoState(wb, year) {
+  const summary = {
+    sheetsImported: [], sheetsSkipped: [],
+    employeesAdded: 0, shiftsWritten: 0,
+    warnings: 0, warningSamples: []
+  };
+  for (const sheetName of wb.SheetNames) {
+    const upper = sheetName.toUpperCase().trim();
+    const monthIdx = MONTH_NAME_TO_IDX[upper];
+    if (monthIdx === undefined) { summary.sheetsSkipped.push(sheetName + " (not a month)"); continue; }
+    if (monthIdx > IMPORT_MAX_MONTH) { summary.sheetsSkipped.push(sheetName + " (after cap)"); continue; }
+
+    const ws = wb.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
+
+    // Find header row: col A === "ID" (or contains "ID")
+    let hdrIdx = rows.findIndex(r => r && typeof r[0] === "string" && r[0].trim().toUpperCase() === "ID");
+    if (hdrIdx < 0) { summary.sheetsSkipped.push(sheetName + " (no ID header)"); continue; }
+    const hdr = rows[hdrIdx];
+
+    // Date columns: numeric 1..31 starting at col index 2
+    const dayCols = [];
+    for (let c = 2; c < hdr.length; c++) {
+      const v = hdr[c];
+      let day = null;
+      if (typeof v === "number" && v >= 1 && v <= 31) day = v;
+      else if (typeof v === "string" && /^\s*\d{1,2}\s*$/.test(v)) {
+        const n = parseInt(v.trim()); if (n >= 1 && n <= 31) day = n;
+      }
+      if (day) dayCols.push({ col: c, day });
+    }
+    if (!dayCols.length) { summary.sheetsSkipped.push(sheetName + " (no day cols)"); continue; }
+
+    // Data rows: any row past header with an ID in col 0 and name in col 1
+    for (let r = hdrIdx + 1; r < rows.length; r++) {
+      const row = rows[r];
+      if (!row) continue;
+      const id = row[0] == null ? "" : String(row[0]).trim();
+      const nameCell = row[1] == null ? "" : String(row[1]).trim();
+      if (!id || !nameCell) continue;
+      const lines = nameCell.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+      const empName = lines[0] || nameCell;
+      const position = lines.slice(1).join(" ");
+
+      let emp = state.employees.find(e => e.id === id);
+      if (!emp) {
+        emp = { id, name: empName, position };
+        state.employees.push(emp);
+        summary.employeesAdded++;
+      } else {
+        // Refresh name/position from Excel (Excel wins)
+        if (empName) emp.name = empName;
+        if (position) emp.position = position;
+      }
+
+      if (!state.shifts[id]) state.shifts[id] = {};
+      for (const { col, day } of dayCols) {
+        const raw = row[col];
+        if (raw == null || (typeof raw === "string" && raw.trim() === "")) continue;
+        const v = normalizeShift(raw);
+        if (v === null) {
+          summary.warnings++;
+          if (summary.warningSamples.length < 10) summary.warningSamples.push(`${sheetName}!${id}/${day}=${JSON.stringify(raw)}`);
+          continue;
+        }
+        state.shifts[id][dateKey(year, monthIdx, day)] = v;
+        summary.shiftsWritten++;
+      }
+    }
+    summary.sheetsImported.push(sheetName);
+  }
+  return summary;
+}
+
+function importJson() {
+  const input = document.createElement("input");
+  input.type = "file"; input.accept = "application/json";
+  input.onchange = () => {
+    const file = input.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        if (!data.employees || !data.shifts) throw new Error("invalid");
+        state = data;
+        saveState(); render();
+      } catch (e) { alert("ไฟล์ไม่ถูกต้อง: " + e.message); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+// ---------- Wire up ----------
+document.getElementById("monthSel").addEventListener("change", e => {
+  state.month = parseInt(e.target.value, 10);
+  clearSelection(); saveState(); render();
+  saveLastViewMonth();
+});
+document.getElementById("yearInput").addEventListener("change", e => {
+  state.year = parseInt(e.target.value, 10) || state.year;
+  clearSelection(); saveState(); render();
+  saveLastViewMonth();
+});
+let lastViewSaveTimer = null;
+function saveLastViewMonth() {
+  if (lastViewSaveTimer) clearTimeout(lastViewSaveTimer);
+  lastViewSaveTimer = setTimeout(() => {
+    api('PUT', '/api/last-view-month', { year: state.year, month: state.month })
+      .catch(err => console.warn("save lastViewMonth failed:", err.message));
+  }, 300);
+}
+document.getElementById("minHoursInput").addEventListener("change", e => {
+  const v = parseInt(e.target.value, 10);
+  setMinHoursForCurrentMonth(isNaN(v) || v < 0 ? 0 : v);
+  saveState(); render();
+});
+document.getElementById("btnAddEmp").addEventListener("click", addEmployee);
+document.getElementById("btnAutoFill").addEventListener("click", autoFill);
+document.getElementById("btnRules").addEventListener("click", openRulesEditor);
+// Settings dropdown: hover to preview, click to pin, 200ms grace before
+// closing on mouseleave (forgiving if you overshoot or slip off the bridge).
+(function wireSettingsDropdown() {
+  const trigger = document.getElementById("btnSettings");
+  const menu = document.getElementById("settingsMenu");
+  const wrap = trigger && trigger.closest(".settings-dropdown");
+  if (!trigger || !menu || !wrap) return;
+
+  const HOVER_CLOSE_DELAY = 200;  // ms
+  let isPinned = false;
+  let closeTimer = null;
+
+  const open = () => {
+    if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+    menu.classList.add("open");
+  };
+  const close = () => {
+    if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+    menu.classList.remove("open");
+    isPinned = false;
+  };
+  const scheduleClose = () => {
+    if (isPinned) return;
+    if (closeTimer) clearTimeout(closeTimer);
+    closeTimer = setTimeout(() => { menu.classList.remove("open"); closeTimer = null; }, HOVER_CLOSE_DELAY);
+  };
+
+  wrap.addEventListener("mouseenter", open);
+  wrap.addEventListener("mouseleave", scheduleClose);
+
+  trigger.addEventListener("click", e => {
+    e.stopPropagation();
+    const isOpen = menu.classList.contains("open");
+    if (isOpen && isPinned) close();          // pinned + click → close
+    else if (isOpen) isPinned = true;         // hover-open + click → pin
+    else { open(); isPinned = true; }         // closed + click → open & pin
+  });
+
+  // Menu item clicks always close
+  menu.querySelectorAll("button").forEach(b => b.addEventListener("click", close));
+  // Outside click closes
+  document.addEventListener("click", e => {
+    if (!menu.classList.contains("open")) return;
+    if (e.target.closest(".settings-dropdown")) return;
+    close();
+  });
+  // Esc closes
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && menu.classList.contains("open")) close();
+  });
+})();
+// PNG export dropdown — same hover/click pattern as the Settings menu.
+(function wireExportDropdown() {
+  const trigger = document.getElementById("btnExportPng");
+  const menu = document.getElementById("exportMenu");
+  const wrap = trigger && trigger.closest(".settings-dropdown");
+  if (!trigger || !menu || !wrap) return;
+  const HOVER_CLOSE_DELAY = 200;
+  let isPinned = false;
+  let closeTimer = null;
+  const open = () => { if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; } menu.classList.add("open"); };
+  const close = () => { if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; } menu.classList.remove("open"); isPinned = false; };
+  const scheduleClose = () => {
+    if (isPinned) return;
+    if (closeTimer) clearTimeout(closeTimer);
+    closeTimer = setTimeout(() => { menu.classList.remove("open"); closeTimer = null; }, HOVER_CLOSE_DELAY);
+  };
+  wrap.addEventListener("mouseenter", open);
+  wrap.addEventListener("mouseleave", scheduleClose);
+  trigger.addEventListener("click", e => {
+    e.stopPropagation();
+    const isOpen = menu.classList.contains("open");
+    if (isOpen && isPinned) close();
+    else if (isOpen) isPinned = true;
+    else { open(); isPinned = true; }
+  });
+  menu.querySelectorAll("button").forEach(b => b.addEventListener("click", close));
+  document.addEventListener("click", e => {
+    if (!menu.classList.contains("open")) return;
+    if (e.target.closest(".settings-dropdown")) return;
+    close();
+  });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && menu.classList.contains("open")) close();
+  });
+})();
+document.getElementById("btnExportFull").addEventListener("click", () => exportSchedulePng("full"));
+document.getElementById("btnExportSplit").addEventListener("click", () => exportSchedulePng("split"));
+
+const THAI_MONTHS = [
+  "มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน",
+  "กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"
+];
+
+// ---------- Google Calendar sync (per employee, opt-in) ----------
+// The server pushes shifts into a "ตารางเวร IICS" calendar in the employee's
+// Google account. Connecting must happen on the scheduler PC (Google only
+// allows the http://localhost redirect), so the modal shows the "connect"
+// button only there and instructions everywhere else.
+function googleLinkFor(empId) { return (state.googleLinks || {})[empId] || null; }
+function googleLinkClass(empId) {
+  const l = googleLinkFor(empId);
+  if (!l) return "";
+  return (l.status === "reauth" || l.lastError) ? "err" : "on";
+}
+function googleLinkTitle(empId) {
+  const l = googleLinkFor(empId);
+  if (!l) return "ซิงค์ Google Calendar (ยังไม่เชื่อมต่อ)";
+  if (l.status === "reauth" || l.lastError) return "Google Calendar: มีปัญหา — คลิกเพื่อดู";
+  return `Google Calendar: เชื่อมต่อแล้ว${l.email ? " (" + l.email + ")" : ""}`;
+}
+function isServerPc() {
+  return ["localhost", "127.0.0.1"].includes(location.hostname);
+}
+async function refreshGoogleLinks() {
+  try {
+    const r = await api('GET', '/api/google/links');
+    state.googleLinks = r.links || {};
+  } catch (e) { console.warn(e); }
+}
+function fmtSyncTime(iso) {
+  if (!iso) return "ยังไม่เคยซิงค์";
+  // SQLite CURRENT_TIMESTAMP is UTC without a zone marker.
+  const d = new Date(iso.replace(" ", "T") + "Z");
+  return isNaN(d) ? iso : d.toLocaleString("th-TH");
+}
+
+function openGoogleSyncModal(empId) {
+  const emp = getEmp(empId);
+  if (!emp) return;
+  const host = document.getElementById("modalHost");
+  const bg = document.createElement("div");
+  bg.className = "modal-bg";
+  host.appendChild(bg);
+  let poll = null;
+  const close = () => { clearInterval(poll); host.innerHTML = ""; render(); };
+  bg.addEventListener("click", e => { if (e.target === bg) close(); });
+
+  const draw = () => {
+    const link = googleLinkFor(empId);
+    let body;
+    if (!link) {
+      body = `
+        <p>เมื่อเชื่อมต่อแล้ว ตารางเวรของ <b>${escapeHtml(emp.name)}</b> จะถูกส่งเข้า Google Calendar
+        ในปฏิทินชื่อ <b>"ตารางเวร IICS"</b> และอัปเดตเองทุกครั้งที่ตารางเปลี่ยน (ไม่ต้องดาวน์โหลดไฟล์อีก)</p>
+        <ol>
+          <li>กด <b>"1. เปิด Google"</b> → เข้าสู่ระบบ Google <u>ของตัวเอง</u> แล้วกด "อนุญาต"
+            <span class="muted">(ถ้าเห็น "Google hasn't verified this app" ให้กด Advanced → Go to IICS Scheduler)</span></li>
+          ${isServerPc()
+            ? `<li>หน้า "เชื่อมต่อสำเร็จ" จะเปิดขึ้น — เสร็จแล้ว ✅</li>`
+            : `<li>เบราว์เซอร์จะไปหน้า <b>localhost:3012</b> และขึ้นว่า <i>"ไม่สามารถเข้าถึงไซต์นี้ / refused to connect"</i> — <b>ปกติ ไม่ต้องตกใจ</b></li>
+               <li><b>คัดลอกลิงก์ทั้งหมดจากช่องที่อยู่ (address bar)</b> ของหน้านั้น มาวางในช่องด้านล่าง แล้วกด "2. ยืนยัน"</li>`}
+        </ol>
+        <div class="field" style="margin-top:10px">
+          <label>วางลิงก์จาก address bar ที่นี่ (http://localhost:3012/api/google/callback?code=…)</label>
+          <input class="paste" placeholder="http://localhost:3012/api/google/callback?code=4/0A…&state=…" />
+        </div>
+        <div class="status err paste-err" hidden></div>
+        <div class="actions">
+          <button class="cancel">ปิด</button>
+          <span class="spacer"></span>
+          <button class="ok connect">1. เปิด Google</button>
+          <button class="ok complete">2. ยืนยัน</button>
+        </div>`;
+    } else {
+      const bad = link.status === "reauth" || link.lastError;
+      body = `
+        <div class="status ${bad ? "err" : "ok"}">
+          ${bad ? "⚠️" : "✅"} <b>${link.status === "reauth" ? "ต้องเชื่อมต่อใหม่" : "เชื่อมต่อแล้ว"}</b>
+          ${link.email ? `— ${escapeHtml(link.email)}` : ""}<br>
+          <span class="muted">ซิงค์ล่าสุด: ${escapeHtml(fmtSyncTime(link.lastSyncAt))}</span>
+          ${link.lastError ? `<br><span class="muted">ข้อผิดพลาด: ${escapeHtml(link.lastError)}</span>` : ""}
+        </div>
+        <p class="muted">เวรจะถูกส่งเข้าปฏิทิน "ตารางเวร IICS" ในบัญชี Google ของ ${escapeHtml(emp.name)} อัตโนมัติเมื่อตารางเปลี่ยน
+        (เครื่องเซิร์ฟเวอร์ต้องเปิดและต่ออินเทอร์เน็ตอยู่)</p>
+        <div class="actions">
+          <button class="danger disconnect">ยกเลิกการเชื่อมต่อ</button>
+          <span class="spacer"></span>
+          ${link.status === "reauth" && isServerPc() ? `<button class="ok connect">เชื่อมต่อใหม่</button>` : ""}
+          <button class="cancel">ปิด</button>
+          <button class="ok resync">ซิงค์ใหม่ทั้งหมด</button>
+        </div>`;
+    }
+    bg.innerHTML = `<div class="modal gcal-modal"><h3>Google Calendar — ${escapeHtml(emp.name)}</h3>${body}</div>`;
+
+    bg.querySelector(".cancel").addEventListener("click", close);
+    bg.querySelector(".connect")?.addEventListener("click", () => {
+      window.open(`/api/google/connect/${encodeURIComponent(empId)}`, "_blank");
+      // Watch for the callback to land, then refresh the modal.
+      clearInterval(poll);
+      let ticks = 0;
+      poll = setInterval(async () => {
+        const before = JSON.stringify(googleLinkFor(empId));
+        await refreshGoogleLinks();
+        if (JSON.stringify(googleLinkFor(empId)) !== before) { draw(); }
+        if (++ticks > 90) clearInterval(poll);   // stop after ~3 min
+      }, 2000);
+    });
+    bg.querySelector(".complete")?.addEventListener("click", async () => {
+      const input = bg.querySelector(".paste").value.trim();
+      const errBox = bg.querySelector(".paste-err");
+      if (!input) { errBox.textContent = "กรุณาวางลิงก์จาก address bar ก่อน"; errBox.hidden = false; return; }
+      const btn = bg.querySelector(".complete");
+      btn.disabled = true; btn.textContent = "กำลังเชื่อมต่อ…";
+      try {
+        const r = await fetch('/api/google/complete', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ empCode: empId, input }),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+        clearInterval(poll);
+        await refreshGoogleLinks();
+        draw();
+      } catch (e) {
+        errBox.textContent = "เชื่อมต่อไม่สำเร็จ: " + e.message;
+        errBox.hidden = false;
+        btn.disabled = false; btn.textContent = "2. ยืนยัน";
+      }
+    });
+    bg.querySelector(".resync")?.addEventListener("click", async () => {
+      try {
+        await api('POST', `/api/google/resync/${encodeURIComponent(empId)}`);
+        alert("กำลังซิงค์ใหม่ทั้งหมด — จะเสร็จภายในไม่กี่วินาที");
+        setTimeout(async () => { await refreshGoogleLinks(); draw(); }, 5000);
+      } catch (e) { alert("ซิงค์ไม่สำเร็จ: " + e.message); }
+    });
+    bg.querySelector(".disconnect")?.addEventListener("click", async () => {
+      if (!confirm(`ยกเลิกการเชื่อมต่อ Google Calendar ของ ${emp.name}?`)) return;
+      const delCal = confirm('ลบปฏิทิน "ตารางเวร IICS" ออกจาก Google Calendar ด้วยหรือไม่?\n\nตกลง = ลบปฏิทินและเวรทั้งหมดใน Google\nยกเลิก = เก็บปฏิทินไว้ (แต่จะไม่อัปเดตอีก)');
+      try {
+        await api('DELETE', `/api/google/link/${encodeURIComponent(empId)}${delCal ? "?deleteCalendar=1" : ""}`);
+        await refreshGoogleLinks();
+        draw();
+      } catch (e) { alert("ยกเลิกไม่สำเร็จ: " + e.message); }
+    });
+  };
+  draw();
+}
+
+// ---------- ICS export per employee ----------
+// Generates an RFC 5545 iCalendar file for one employee covering the current
+// month. Time-range shifts become timed events; R / V / E become all-day
+// events; OFF days produce no event (cleaner calendar).
+function exportEmployeeIcs(emp) {
+  const year = state.year, month = state.month;
+  const dim = daysInMonth(year, month);
+  const monthName = THAI_MONTHS[month];
+  const SHIFT_NAMES = { R: "คำขอ (Request)", V: "ลาพักร้อน (Vacation)", E: "กิจกรรม (Event)" };
+  const pad = n => String(n).padStart(2, "0");
+  const dateCompact = (y, m, d) => `${y}${pad(m + 1)}${pad(d)}`;
+  // RFC 5545 requires lines to fold at 75 octets; for our short summaries
+  // we won't approach that, so we skip folding for simplicity.
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//IICS Shift Scheduler//TH",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    `X-WR-CALNAME:ตารางเวร ${emp.name} - ${monthName} ${year}`,
+    "X-WR-TIMEZONE:Asia/Bangkok",
+  ];
+
+  let eventCount = 0;
+  for (let d = 1; d <= dim; d++) {
+    const dk = dateKey(year, month, d);
+    const shift = state.shifts[emp.id]?.[dk];
+    if (!shift || shift === "OFF") continue;
+
+    const uid = `${emp.id}-${dk}@iics-shift-scheduler`;
+    const dtStamp = `${dateCompact(year, month, d)}T000000Z`;
+
+    if (shift === "R" || shift === "V" || shift === "E") {
+      // All-day event spanning a single day (DTEND is the day AFTER per ICS spec)
+      const nextDay = new Date(year, month, d + 1);
+      const startStr = dateCompact(year, month, d);
+      const endStr = dateCompact(nextDay.getFullYear(), nextDay.getMonth(), nextDay.getDate());
+      lines.push(
+        "BEGIN:VEVENT",
+        `UID:${uid}`,
+        `DTSTAMP:${dtStamp}`,
+        `DTSTART;VALUE=DATE:${startStr}`,
+        `DTEND;VALUE=DATE:${endStr}`,
+        `SUMMARY:${SHIFT_NAMES[shift]}`,
+        "TRANSP:OPAQUE",
+        "END:VEVENT"
+      );
+      eventCount++;
+    } else {
+      // Time-range shift like "08:00-17:00" (assume Asia/Bangkok local time)
+      const m = /^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/.exec(shift);
+      if (!m) continue;
+      const [, sh, sm, eh, em] = m;
+      const dateStr = dateCompact(year, month, d);
+      // Use floating local time (no Z, no TZID) — Google Calendar interprets
+      // these in the importer's local timezone, which is what we want for a
+      // Thai hospital schedule being imported by Thai staff.
+      const startStr = `${dateStr}T${sh}${sm}00`;
+      const endStr   = `${dateStr}T${eh}${em}00`;
+      lines.push(
+        "BEGIN:VEVENT",
+        `UID:${uid}`,
+        `DTSTAMP:${dtStamp}`,
+        `DTSTART:${startStr}`,
+        `DTEND:${endStr}`,
+        `SUMMARY:เวร ${shift}`,
+        `DESCRIPTION:${emp.name}${emp.position ? " (" + emp.position + ")" : ""}`,
+        "TRANSP:OPAQUE",
+        "END:VEVENT"
+      );
+      eventCount++;
+    }
+  }
+  lines.push("END:VCALENDAR");
+  const ics = lines.join("\r\n");
+
+  if (eventCount === 0) {
+    alert(`ไม่มีเวรของ ${emp.name} ในเดือน ${monthName} ${year}`);
+    return;
+  }
+
+  const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  // Sanitize name for filename
+  const safeName = (emp.name || emp.id).replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, "_");
+  a.download = `${safeName}-${currentMonthKey()}.ics`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(a.href);
+}
+
+async function exportSchedulePng(style = "split") {
+  if (typeof html2canvas === "undefined") {
+    alert("ไม่สามารถโหลดตัวสร้างรูปภาพได้ กรุณาตรวจสอบอินเทอร์เน็ตและรีเฟรชหน้านี้");
+    return;
+  }
+  const wrap = document.getElementById("tableWrap");
+  const origTable = wrap && wrap.querySelector("table.grid");
+  if (!origTable) return;
+  const btn = document.getElementById("btnExportPng");
+  if (btn) { btn.disabled = true; btn.textContent = "📸 กำลังสร้างรูป…"; }
+
+  // Build the off-screen export container with two halves:
+  //   [Title bar]
+  //   [ครึ่งเดือนแรก]
+  //   [table showing days 1–15]
+  //   [ครึ่งเดือนหลัง]
+  //   [table showing days 16–end]
+  const exportRoot = document.createElement("div");
+  exportRoot.className = "png-export-root";
+
+  const titleEl = document.createElement("div");
+  titleEl.className = "export-title";
+  const monthThai = THAI_MONTHS[state.month];
+  const minH = getMinHours();
+  titleEl.textContent = `ตารางเวร เดือน${monthThai} ${state.year} (ชั่วโมงการทำงาน ${minH} ชั่วโมง)`;
+  exportRoot.appendChild(titleEl);
+
+  const totalDays = daysInMonth(state.year, state.month);
+
+  // Compute Employee-column width once via canvas text measurement
+  let empColWidthPx = 0;
+  {
+    const meas = document.createElement("canvas").getContext("2d");
+    state.employees.forEach(emp => {
+      meas.font = "600 12px Sarabun, sans-serif";
+      empColWidthPx = Math.max(empColWidthPx, meas.measureText(emp.name || "").width);
+      meas.font = "400 11px Sarabun, sans-serif";
+      const metaText = `${emp.id || ""}${emp.position ? " · " + emp.position : ""}`;
+      empColWidthPx = Math.max(empColWidthPx, meas.measureText(metaText).width);
+    });
+    meas.font = "700 12px Sarabun, sans-serif";
+    empColWidthPx = Math.max(empColWidthPx, meas.measureText("พนักงาน").width);
+    empColWidthPx = Math.ceil(empColWidthPx) + 16;
+  }
+
+  // Helper: clone the live table, collapse columns outside the day range,
+  // collapse the totals columns + footer rows, and append filler cells so the
+  // table reaches a target visible-column count (used so both halves render
+  // at the same width).
+  function buildHalfTable(startDay, endDay, fillerCount = 0) {
+    const t = origTable.cloneNode(true);
+    t.querySelector("tfoot")?.remove();
+    const cols = t.querySelectorAll("colgroup col");
+    cols.forEach((c, i) => {
+      if (i === 0) { c.style.width = empColWidthPx + "px"; return; }
+      const dayNum = i;
+      if (dayNum >= 1 && dayNum <= totalDays) {
+        if (dayNum < startDay || dayNum > endDay) c.style.visibility = "collapse";
+      } else {
+        c.style.visibility = "collapse";
+      }
+    });
+
+    if (fillerCount > 0) {
+      // Add filler <col>, <th>, and <td> entries, inserted BEFORE the totals so
+      // they end up visually to the right of the last day column.
+      const colgroup = t.querySelector("colgroup");
+      const firstTotalCol = colgroup.querySelector("col.col-total");
+      const headerRow = t.querySelector("thead tr");
+      const firstTotalTh = headerRow.querySelector("th.totals-start");
+      for (let f = 0; f < fillerCount; f++) {
+        const fc = document.createElement("col");
+        fc.className = "col-day";
+        colgroup.insertBefore(fc, firstTotalCol);
+        const fth = document.createElement("th");
+        fth.className = "filler-th";
+        fth.innerHTML = "&nbsp;";
+        headerRow.insertBefore(fth, firstTotalTh);
+      }
+      t.querySelectorAll("tbody tr").forEach(tr => {
+        const firstTotalTd = tr.querySelector("td.totals-start");
+        for (let f = 0; f < fillerCount; f++) {
+          const fcell = document.createElement("td");
+          fcell.className = "cell filler-cell";
+          tr.insertBefore(fcell, firstTotalTd);
+        }
+      });
+    }
+    return t;
+  }
+
+  function addSubtitle(text) {
+    const s = document.createElement("div");
+    s.className = "export-subtitle";
+    s.textContent = text;
+    exportRoot.appendChild(s);
+  }
+
+  if (style === "full") {
+    // Single table covering days 1..totalDays — no subtitles, no fillers.
+    const tFull = buildHalfTable(1, totalDays, 0);
+    exportRoot.appendChild(tFull);
+  } else {
+    // Split into two halves: days 1–15 and 16..totalDays. Pad whichever is
+    // shorter so both halves render at exactly the same width.
+    const firstHalfCount = 15;
+    const secondHalfCount = Math.max(0, totalDays - 15);
+    const fillerForFirst = Math.max(0, secondHalfCount - firstHalfCount);
+    const fillerForSecond = Math.max(0, firstHalfCount - secondHalfCount);
+
+    addSubtitle("ครึ่งเดือนแรก");
+    const t1 = buildHalfTable(1, 15, fillerForFirst);
+    exportRoot.appendChild(t1);
+
+    addSubtitle("ครึ่งเดือนหลัง");
+    const t2 = buildHalfTable(16, totalDays, fillerForSecond);
+    exportRoot.appendChild(t2);
+  }
+
+  document.body.appendChild(exportRoot);
+
+  // Wait for layout to settle (col.visibility:collapse takes a frame to apply)
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+  // Fix container width to the widest visible table so the title bar (and
+  // subtitles, in split mode) spans the full visible schedule with no white
+  // side strips.
+  const tables = exportRoot.querySelectorAll("table.grid");
+  let targetWidth = 0;
+  tables.forEach(t => { targetWidth = Math.max(targetWidth, t.offsetWidth); });
+  exportRoot.style.width = targetWidth + "px";
+
+  await new Promise(r => requestAnimationFrame(r));
+
+  try {
+    const canvas = await html2canvas(exportRoot, {
+      backgroundColor: "#ffffff",
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      width: targetWidth,
+      windowWidth: targetWidth + 32,
+    });
+    canvas.toBlob(blob => {
+      if (!blob) { alert("สร้างรูป PNG ไม่สำเร็จ"); return; }
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `schedule-${currentMonthKey()}${style === "split" ? "-split" : ""}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(a.href);
+    }, "image/png");
+  } catch (e) {
+    console.error("PNG export failed:", e);
+    alert("ดาวน์โหลด PNG ล้มเหลว: " + e.message);
+  } finally {
+    exportRoot.remove();
+    if (btn) { btn.disabled = false; btn.textContent = "🖼 ดาวน์โหลดรูป ▾"; }
+  }
+}
+
+document.getElementById("btnClear").addEventListener("click", () => {
+  if (checkLock()) return;
+  if (!confirm("ล้างตารางเวรทั้งหมดของเดือนนี้?")) return;
+  pushUndo();
+  const days = daysInMonth(state.year, state.month);
+  for (const emp of state.employees) {
+    if (!state.shifts[emp.id]) continue;
+    for (let d = 1; d <= days; d++) {
+      const dk = dateKey(state.year, state.month, d);
+      if (state.shifts[emp.id][dk] != null) {
+        delete state.shifts[emp.id][dk];
+        pendingShiftDeletes.push({ empCode: emp.id, dateKey: dk });
+      }
+    }
+  }
+  saveState({ shifts: true }); render();
+});
+function orderedSelection() {
+  // Row-major: employees in display order, then date columns
+  const out = [];
+  const days = daysInMonth(state.year, state.month);
+  for (const emp of state.employees) {
+    for (let d = 1; d <= days; d++) {
+      const dk = dateKey(state.year, state.month, d);
+      const key = emp.id + "|" + dk;
+      if (selection.has(key)) out.push({ empId: emp.id, dk });
+    }
+  }
+  return out;
+}
+function copySelectionToClipboard() {
+  const items = orderedSelection();
+  if (!items.length) return;
+  clipboard = items.map(({empId, dk}) => state.shifts[empId]?.[dk] || "");
+  // Visually mark the copied cells with a dashed teal outline
+  copiedKeys = new Set(items.map(({empId, dk}) => empId + "|" + dk));
+  repaintCopied();
+  // Also push to OS clipboard as TSV for convenience
+  const tsv = clipboard.join("\t");
+  if (navigator.clipboard) navigator.clipboard.writeText(tsv).catch(() => {});
+  document.getElementById("saveStatus").textContent = `คัดลอก ${clipboard.length} ช่อง`;
+}
+function pasteFromClipboard() {
+  if (checkLock()) return;
+  if (!clipboard.length) return;
+  pushUndo();
+  const items = orderedSelection();
+  if (!items.length) return;
+  items.forEach(({empId, dk}, i) => {
+    const val = clipboard[i % clipboard.length];
+    if (!state.shifts[empId]) state.shifts[empId] = {};
+    if (val === "" || val == null) {
+      delete state.shifts[empId][dk];
+      pendingShiftDeletes.push({ empCode: empId, dateKey: dk });
+    } else state.shifts[empId][dk] = val;
+  });
+  saveState({ shifts: true });
+  render();
+}
+
+document.addEventListener("keydown", e => {
+  // Don't hijack typing in inputs (modal/popover fields, in-cell edit)
+  const t = e.target;
+  const typing = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT");
+
+  if (e.key === "Escape") { closePopover(); clearSelection(); copiedKeys.clear(); render(); return; }
+  if (e.key === "Delete" && selection.size && !typing) { applyToSelection(""); return; }
+  if ((e.ctrlKey || e.metaKey) && !typing) {
+    if (e.key === "c" || e.key === "C") { copySelectionToClipboard(); e.preventDefault(); }
+    else if (e.key === "v" || e.key === "V") { pasteFromClipboard(); e.preventDefault(); }
+    else if (e.key === "z" || e.key === "Z") {
+      // Ctrl+Z = undo, Ctrl+Shift+Z = redo
+      e.preventDefault();
+      if (e.shiftKey) redo(); else undo();
+    }
+    else if (e.key === "y" || e.key === "Y") { e.preventDefault(); redo(); }
+    return;
+  }
+
+  // If focus is in any text input (popover, modal, in-cell editor), let
+  // it handle the key — we don't want to hijack arrow navigation or type
+  // triggers.
+  if (typing) return;
+
+  // Arrow-key navigation between cells
+  if (e.key === "ArrowUp")    { e.preventDefault(); moveCellSelection("up",    e.shiftKey); return; }
+  if (e.key === "ArrowDown")  { e.preventDefault(); moveCellSelection("down",  e.shiftKey); return; }
+  if (e.key === "ArrowLeft")  { e.preventDefault(); moveCellSelection("left",  e.shiftKey); return; }
+  if (e.key === "ArrowRight") { e.preventDefault(); moveCellSelection("right", e.shiftKey); return; }
+
+  // Select-then-type: if any cell is the "current" (cursor / anchor) cell
+  // and the user pressed a printable character, enter edit mode with that
+  // character as the initial input.
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const isPrintable = e.key.length === 1 && /[\w\-:.]/i.test(e.key);
+  if (!isPrintable) return;
+  // If a stale editingCellKey is lingering (e.g. an earlier edit's blur
+  // never fired), clear it now so we can start a fresh edit.
+  if (editingCellKey && !document.querySelector(".cell-edit-input")) {
+    editingCellKey = null;
+  }
+  const targetKey = cursorKey
+    || anchorKey
+    || (selection.size ? selection.values().next().value : null);
+  if (!targetKey) {
+    console.log("[type] no target cell — click a cell first to set the cursor");
+    return;
+  }
+  const [empId, dk] = targetKey.split("|");
+  const td = document.querySelector(`td.cell[data-emp="${empId}"][data-date="${dk}"]`);
+  if (!td) {
+    console.log("[type] cursor cell not in DOM (cursorKey =", targetKey, "). Did the month change?");
+    return;
+  }
+  if (isCurrentMonthLocked()) {
+    console.log("[type] month is locked — edits disabled until you move to a newer month");
+    flashCellInvalid(td);
+    return;
+  }
+  e.preventDefault();
+  console.log("[type] starting edit on", targetKey, "with key:", JSON.stringify(e.key));
+  startEditingCell(td, e.key);
+});
+
+render();
+// On startup: pull the full state from the Node + SQLite backend.
+loadStateFromServer();
+</script>
+</body>
+</html>

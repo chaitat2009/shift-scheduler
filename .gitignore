@@ -1,0 +1,17 @@
+# dependencies
+node_modules/
+
+# secrets — never commit
+client_secret*.json
+.env
+
+# local data (staff names, shifts, Google refresh tokens)
+scheduler.db
+*.db
+*.db-journal
+*.db-wal
+*.xlsx
+
+# python
+__pycache__/
+*.pyc
