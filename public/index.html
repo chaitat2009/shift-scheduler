@@ -2515,8 +2515,9 @@ function openGoogleSyncModal(empId) {
         <p>เมื่อเชื่อมต่อแล้ว ตารางเวรของ <b>${escapeHtml(emp.name)}</b> จะถูกส่งเข้า Google Calendar
         ในปฏิทินชื่อ <b>"ตารางเวร IICS"</b> และอัปเดตเองทุกครั้งที่ตารางเปลี่ยน (ไม่ต้องดาวน์โหลดไฟล์อีก)</p>
         <ol>
-          <li>กด <b>"1. เปิด Google"</b> → เข้าสู่ระบบ Google <u>ของตัวเอง</u> แล้วกด "อนุญาต"
+          <li>กด <b>"1. เปิด Google"</b> → เข้าสู่ระบบ Google <u>ของตัวเอง</u>
             <span class="muted">(ถ้าเห็น "Google hasn't verified this app" ให้กด Advanced → Go to IICS Scheduler)</span></li>
+          <li>หน้าขอสิทธิ์: <b>ติ๊กช่องสิทธิ์ให้ครบทุกช่อง</b> โดยเฉพาะ <i>"สร้างปฏิทิน Google รอง…"</i> แล้วกด "ดำเนินการต่อ / Continue"</li>
           ${isServerPc()
             ? `<li>หน้า "เชื่อมต่อสำเร็จ" จะเปิดขึ้น — เสร็จแล้ว ✅</li>`
             : `<li>เบราว์เซอร์จะไปหน้า <b>localhost:3012</b> และขึ้นว่า <i>"ไม่สามารถเข้าถึงไซต์นี้ / refused to connect"</i> — <b>ปกติ ไม่ต้องตกใจ</b></li>
